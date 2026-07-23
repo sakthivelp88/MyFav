@@ -1,0 +1,45 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.ts",
+  "scripts": {
+    "dev": "tsx watch server.ts",
+    "start": "tsx server.ts",
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "echo \"No tests configured\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "connect-mongo": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.0",
+    "express-session": "^1.19.0",
+    "module-alias": "^2.3.4",
+    "mongoose": "^9.8.0"
+  },
+  "_moduleAliases": {
+    "@routes": "src/routes",
+    "@models": "src/models",
+    "@controllers": "src/controllers",
+    "@utils": "src/utils"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
+    "@types/node": "^26.1.1",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  }
+}

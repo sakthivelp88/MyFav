@@ -1,0 +1,89 @@
+To set up a new project with Vite (frontend), Express.js (backend), and MongoDB (database), you’ll want a clean structure and some configuration to make development smooth. Here’s a step‑by‑step guide to get you started:
+
+01
+Initialize Vite Frontend
+Set up the React + Vite project for the client side.
+
+Run in terminal: npm create vite@latest client
+
+Choose React or React + TypeScript template
+
+Navigate into client folder
+
+Install dependencies: npm install
+
+Add Tailwind CSS if needed: npm install -D tailwindcss postcss autoprefixer
+
+02
+Initialize Express Backend
+Create the server folder and configure Express.
+
+Run in terminal: npm init -y inside server
+
+Install dependencies: npm install express mongoose cors dotenv
+
+Create server.js or index.js
+
+Set up basic Express app with routes
+
+Enable CORS for frontend communication
+
+03
+Configure MongoDB Connection
+Connect backend to MongoDB using Mongoose.
+
+Inside server/config/db.js
+
+Import mongoose
+
+Use mongoose.connect(process.env.MONGO_URI)
+
+Handle success/error with console logs
+
+Store MONGO_URI in .env file
+
+04
+Set Up API Routes
+Define routes for CRUD operations.
+
+Inside server/routes/
+
+Create route files (e.g., users.js, tickets.js)
+
+Import into server.js
+
+Use app.use('/api/users', userRoutes)
+
+05
+Configure Vite Proxy
+Allow frontend to call backend APIs easily.
+
+Edit vite.config.js in client
+
+Add server: { proxy: { '/api': 'http://localhost:5000' } }
+
+This forwards API calls to Express backend
+
+06
+Run Both Servers
+Start frontend and backend together.
+
+In server: run node server.js or use nodemon
+
+In client: run npm run dev
+
+Access frontend at http://localhost:5173 and backend at http://localhost:5000
+
+07
+Organize Project Structure
+Keep code modular and clean.
+
+/client → Vite React app
+
+/server → Express + MongoDB backend
+
+.env → environment variables
+
+Use aliases (jsconfig.json, vite.config.js) for cleaner imports
+
+This setup gives you a full‑stack environment: Vite for fast frontend development, Express for backend APIs, and MongoDB for persistent storage. You can expand with authentication (JWT), payment integration (Razorpay), or admin dashboards later.
