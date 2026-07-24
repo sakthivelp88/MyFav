@@ -22,14 +22,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.0",
     "express-session": "^1.19.0",
-    "module-alias": "^2.3.4",
     "mongoose": "^9.8.0"
-  },
-  "_moduleAliases": {
-    "@routes": "src/routes",
-    "@models": "src/models",
-    "@controllers": "src/controllers",
-    "@utils": "src/utils"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

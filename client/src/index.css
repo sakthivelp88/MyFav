@@ -15,3 +15,30 @@
     box-sizing: border-box;
   }
 }
+
+@layer utilities {
+  .book-page-frame {
+    perspective: 1400px;
+  }
+
+  .book-page-animate {
+    transform-origin: left center;
+    animation: book-page-turn 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .book-chapter-transition {
+    transition: grid-template-rows 260ms ease, opacity 220ms ease;
+  }
+}
+
+@keyframes book-page-turn {
+  0% {
+    opacity: 0;
+    transform: rotateY(-12deg) translateX(-8px) scale(0.99);
+  }
+
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg) translateX(0) scale(1);
+  }
+}

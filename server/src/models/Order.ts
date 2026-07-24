@@ -74,6 +74,20 @@ const orderSchema = new Schema(
       enum: ['unpaid', 'paid'],
       default: 'unpaid',
     },
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'paid'],
+      default: 'pending',
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['cash', 'upi', 'card', 'razorpay', null],
+      default: null,
+    },
+    paymentPaidAt: {
+      type: Date,
+      default: null,
+    },
     billSettledAt: {
       type: Date,
       default: null,

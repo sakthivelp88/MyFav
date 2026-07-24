@@ -11,19 +11,31 @@ export const listItems = async (_req: Request, res: Response) => {
 export const createItem = async (req: Request, res: Response) => {
   requireAdmin(req)
 
-  const { name, price, category, available } = req.body as {
+  const { name, price, category, available, stockQuantity, stockUnit, weightage } = req.body as {
     name?: string
     price?: number
     category?: string
     available?: boolean
+    stockQuantity?: number
+    stockUnit?: 'kg' | 'gram' | 'numbers' | 'litre'
+    weightage?: string
   }
 
-  if (!name || typeof price !== 'number') {
-    throw new HttpError('name and numeric price are required', 400)
+  const validUnits = ['kg', 'gram', 'numbers', 'litre']
+
+  if (!name || typeof price !== 'number' || typeof stockQuantity !== 'number' || !weightage?.trim()) {
+    throw new HttpError('name, numeric quantity, weightage and numeric price are required', 400)
+  }
+
+  if (!stockUnit || !validUnits.includes(stockUnit)) {
+    throw new HttpError('Valid stock unit is required', 400)
   }
 
   const item = await ItemModel.create({
     name,
+    stockQuantity,
+    stockUnit,
+    weightage: weightage.trim(),
     price,
     category: category ?? 'tea',
     available: available ?? true,
@@ -45,6 +57,51 @@ export const updateItemAvailability = async (req: Request, res: Response) => {
   const item = await ItemModel.findByIdAndUpdate(
     id,
     { available },
+    { new: true }
+  )
+
+  if (!item) {
+    throw new HttpError('Item not found', 404)
+  }
+
+  res.status(200).json(item)
+}
+
+export const updateItemInventory = async (req: Request, res: Response) => {
+  requireAdmin(req)
+
+  const { id } = req.params
+  const { name, stockQuantity, stockUnit, weightage, price, category, available } = req.body as {
+    name?: string
+    stockQuantity?: number
+    stockUnit?: 'kg' | 'gram' | 'numbers' | 'litre'
+    weightage?: string
+    price?: number
+    category?: string
+    available?: boolean
+  }
+
+  const validUnits = ['kg', 'gram', 'numbers', 'litre']
+
+  if (!name?.trim() || typeof stockQuantity !== 'number' || stockQuantity < 0 || !weightage?.trim() || typeof price !== 'number' || price < 0) {
+    throw new HttpError('name, numeric quantity, weightage and numeric price are required', 400)
+  }
+
+  if (!stockUnit || !validUnits.includes(stockUnit)) {
+    throw new HttpError('Valid stock unit is required', 400)
+  }
+
+  const item = await ItemModel.findByIdAndUpdate(
+    id,
+    {
+      name: name.trim(),
+      stockQuantity,
+      stockUnit,
+      weightage: weightage.trim(),
+      price,
+      category: category?.trim() || 'tea',
+      available: typeof available === 'boolean' ? available : stockQuantity > 0,
+    },
     { new: true }
   )
 

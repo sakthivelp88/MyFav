@@ -1,24 +1,14 @@
-import { type MouseEvent, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import AdminPagination from '@components/AdminPagination'
+import PageToastStack from '@components/PageToastStack'
 import {
-  adminLogout,
   changeAdminPassword,
-  createCategory,
-  createItem,
-  createTable,
-  deleteCategory,
-  deleteTable,
   listCategories,
   listItems,
   listOrders,
   listTables,
-  setItemAvailability,
-  updateOrderBillStatus,
-  updateCategory,
-  updateTable,
-  updateOrderStatus,
 } from '@utils/api'
-import type { BillStatus, Category, DiningTable, Item, Order, OrderStatus } from '../../types'
+import type { Category, DiningTable, Item, Order } from '../../types'
 
 const getPasswordStrength = (password: string) => {
   let score = 0
@@ -40,20 +30,14 @@ const getPasswordStrength = (password: string) => {
 }
 
 function AdminDashboardPage() {
-  const navigate = useNavigate()
-  const modalCardRef = useRef<HTMLElement | null>(null)
   const [items, setItems] = useState<Item[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [tables, setTables] = useState<DiningTable[]>([])
   const [orders, setOrders] = useState<Order[]>([])
-  const [name, setName] = useState('')
-  const [price, setPrice] = useState('')
-  const [category, setCategory] = useState('tea')
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [tableCode, setTableCode] = useState('')
-  const [tableLabel, setTableLabel] = useState('')
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -62,20 +46,14 @@ function AdminDashboardPage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string } | null>(null)
-  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null)
-  const [editingTable, setEditingTable] = useState<{ id: string; code: string; label: string } | null>(null)
-  const [deletingTable, setDeletingTable] = useState<DiningTable | null>(null)
-  const [modalBusy, setModalBusy] = useState(false)
+  const [todaySearchTerm, setTodaySearchTerm] = useState('')
+  const [todayBillFilter, setTodayBillFilter] = useState<'all' | 'paid' | 'unpaid'>('all')
+  const [todaySortOption, setTodaySortOption] = useState<'latest' | 'amountHigh' | 'amountLow'>('latest')
+  const [todayPage, setTodayPage] = useState(1)
+  const [todayPageSize, setTodayPageSize] = useState(10)
 
-  const closeAllModals = () => {
-    setEditingCategory(null)
-    setDeletingCategory(null)
-    setEditingTable(null)
-    setDeletingTable(null)
-  }
-
-  const loadAll = async () => {
+  const loadOverview = async () => {
+    setLoading(true)
     setError('')
 
     try {
@@ -85,21 +63,20 @@ function AdminDashboardPage() {
         listCategories(),
         listTables(),
       ])
+
       setItems(itemResult)
       setOrders(orderResult)
       setCategories(categoryResult)
       setTables(tableResult)
-
-      if (!category && categoryResult.length > 0) {
-        setCategory(categoryResult[0].name)
-      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load admin data')
+      setError(err instanceof Error ? err.message : 'Could not load dashboard data')
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => {
-    void loadAll()
+    void loadOverview()
   }, [])
 
   useEffect(() => {
@@ -107,309 +84,9 @@ function AdminDashboardPage() {
       return
     }
 
-    const timer = window.setTimeout(() => {
-      setSuccess('')
-    }, 3000)
-
+    const timer = window.setTimeout(() => setSuccess(''), 3000)
     return () => window.clearTimeout(timer)
   }, [success])
-
-  useEffect(() => {
-    const hasModalOpen = Boolean(editingCategory || deletingCategory || editingTable || deletingTable)
-    if (!hasModalOpen) {
-      return
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !modalBusy) {
-        closeAllModals()
-        return
-      }
-
-      if (event.key !== 'Tab') {
-        return
-      }
-
-      const modalNode = modalCardRef.current
-      if (!modalNode) {
-        return
-      }
-
-      const focusableNodes = modalNode.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      )
-      const visibleNodes = Array.from(focusableNodes).filter((node) => !node.hasAttribute('disabled'))
-
-      if (visibleNodes.length === 0) {
-        return
-      }
-
-      const firstNode = visibleNodes[0]
-      const lastNode = visibleNodes[visibleNodes.length - 1]
-      const activeNode = document.activeElement as HTMLElement | null
-
-      if (event.shiftKey && activeNode === firstNode) {
-        event.preventDefault()
-        lastNode.focus()
-      } else if (!event.shiftKey && activeNode === lastNode) {
-        event.preventDefault()
-        firstNode.focus()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editingCategory, deletingCategory, editingTable, deletingTable, modalBusy])
-
-  useEffect(() => {
-    const hasModalOpen = Boolean(editingCategory || deletingCategory || editingTable || deletingTable)
-    if (!hasModalOpen) {
-      document.body.style.overflow = ''
-      return
-    }
-
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [editingCategory, deletingCategory, editingTable, deletingTable])
-
-  const handleBackdropMouseDown = (event: MouseEvent<HTMLDivElement>) => {
-    if (event.currentTarget !== event.target || modalBusy) {
-      return
-    }
-
-    closeAllModals()
-  }
-
-  const addMenuItem = async () => {
-    const numericPrice = Number(price)
-
-    if (!name || !Number.isFinite(numericPrice) || numericPrice < 0) {
-      setError('Valid name and price are required')
-      return
-    }
-
-    setError('')
-    setSuccess('')
-
-    try {
-      await createItem({ name, price: numericPrice, category })
-      setName('')
-      setPrice('')
-      setSuccess('Menu item created successfully')
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create item')
-    }
-  }
-
-  const addCategory = async () => {
-    if (!newCategoryName.trim()) {
-      setError('Category name is required')
-      return
-    }
-
-    setError('')
-    setSuccess('')
-
-    try {
-      await createCategory({ name: newCategoryName })
-      setNewCategoryName('')
-      setSuccess('Category created successfully')
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create category')
-    }
-  }
-
-  const renameCategory = async (entry: Category) => {
-    setEditingCategory({ id: entry._id, name: entry.name })
-  }
-
-  const removeCategory = async (entry: Category) => {
-    setDeletingCategory(entry)
-  }
-
-  const saveCategoryEdit = async () => {
-    if (!editingCategory) {
-      return
-    }
-
-    const trimmedName = editingCategory.name.trim()
-    if (!trimmedName) {
-      setError('Category name is required')
-      return
-    }
-
-    setError('')
-    setSuccess('')
-    setModalBusy(true)
-    try {
-      await updateCategory(editingCategory.id, { name: trimmedName })
-      setEditingCategory(null)
-      setSuccess('Category updated successfully')
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update category')
-    } finally {
-      setModalBusy(false)
-    }
-  }
-
-  const confirmCategoryDelete = async () => {
-    if (!deletingCategory) {
-      return
-    }
-
-    setError('')
-    setSuccess('')
-    setModalBusy(true)
-    try {
-      await deleteCategory(deletingCategory._id)
-      setDeletingCategory(null)
-      setSuccess('Category deleted successfully')
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete category')
-    } finally {
-      setModalBusy(false)
-    }
-  }
-
-  const addTable = async () => {
-    if (!tableCode.trim() || !tableLabel.trim()) {
-      setError('Table code and table label are required')
-      return
-    }
-
-    setError('')
-    setSuccess('')
-
-    try {
-      await createTable({
-        code: tableCode,
-        label: tableLabel,
-      })
-      setTableCode('')
-      setTableLabel('')
-      setSuccess('Table created successfully')
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create table')
-    }
-  }
-
-  const editTable = async (entry: DiningTable) => {
-    setEditingTable({ id: entry._id, code: entry.code, label: entry.label })
-  }
-
-  const toggleTableActive = async (entry: DiningTable) => {
-    setError('')
-    setSuccess('')
-    try {
-      await updateTable(entry._id, { active: !entry.active })
-      setSuccess(`Table ${entry.active ? 'deactivated' : 'activated'} successfully`)
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update table state')
-    }
-  }
-
-  const removeTable = async (entry: DiningTable) => {
-    setDeletingTable(entry)
-  }
-
-  const saveTableEdit = async () => {
-    if (!editingTable) {
-      return
-    }
-
-    const nextCode = editingTable.code.trim().toUpperCase()
-    const nextLabel = editingTable.label.trim()
-
-    if (!nextCode || !nextLabel) {
-      setError('Table code and label are required')
-      return
-    }
-
-    setError('')
-    setSuccess('')
-    setModalBusy(true)
-    try {
-      await updateTable(editingTable.id, { code: nextCode, label: nextLabel })
-      setEditingTable(null)
-      setSuccess('Table updated successfully')
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update table')
-    } finally {
-      setModalBusy(false)
-    }
-  }
-
-  const confirmTableDelete = async () => {
-    if (!deletingTable) {
-      return
-    }
-
-    setError('')
-    setSuccess('')
-    setModalBusy(true)
-    try {
-      await deleteTable(deletingTable._id)
-      setDeletingTable(null)
-      setSuccess('Table deleted successfully')
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete table')
-    } finally {
-      setModalBusy(false)
-    }
-  }
-
-  const toggleAvailability = async (item: Item) => {
-    setSuccess('')
-    try {
-      await setItemAvailability(item._id, !item.available)
-      setSuccess(`Item ${item.available ? 'hidden' : 'shown'} successfully`)
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update item')
-    }
-  }
-
-  const setStatus = async (orderId: string, status: OrderStatus) => {
-    setSuccess('')
-    try {
-      await updateOrderStatus(orderId, status)
-      setSuccess('Order status updated successfully')
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update order')
-    }
-  }
-
-  const setBillStatus = async (orderId: string, billStatus: BillStatus) => {
-    setSuccess('')
-    try {
-      await updateOrderBillStatus(orderId, billStatus)
-      setSuccess('Bill status updated successfully')
-      await loadAll()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update bill status')
-    }
-  }
-
-  const logoutAdmin = async () => {
-    try {
-      await adminLogout()
-    } catch {
-      // Ignore logout API errors and still redirect to login.
-    }
-    navigate('/admin/login', { replace: true })
-  }
 
   const submitPasswordChange = async () => {
     setPasswordMessage('')
@@ -456,36 +133,356 @@ function AdminDashboardPage() {
 
   const passwordStrength = getPasswordStrength(newPassword)
 
+  const now = new Date()
+  const activeItems = useMemo(() => items.filter((item) => item.available).length, [items])
+  const activeTables = useMemo(() => tables.filter((table) => table.active).length, [tables])
+  const unpaidOrders = useMemo(() => orders.filter((order) => order.billStatus === 'unpaid').length, [orders])
+  const grossRevenue = useMemo(() => orders.reduce((sum, order) => sum + order.totalAmount, 0), [orders])
+
+  const todayOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const createdAt = new Date(order.createdAt)
+      return (
+        createdAt.getFullYear() === now.getFullYear() &&
+        createdAt.getMonth() === now.getMonth() &&
+        createdAt.getDate() === now.getDate()
+      )
+    })
+  }, [orders, now])
+
+  const todayRevenue = useMemo(
+    () => todayOrders.reduce((sum, order) => sum + order.totalAmount, 0),
+    [todayOrders]
+  )
+
+  const filteredTodayOrders = useMemo(() => {
+    const normalizedSearch = todaySearchTerm.trim().toLowerCase()
+
+    const next = todayOrders.filter((order) => {
+      if (normalizedSearch) {
+        const invoice = order.invoiceNumber ?? `ORD-${order._id.slice(-6).toUpperCase()}`
+        const matchesSearch =
+          order.customerName.toLowerCase().includes(normalizedSearch) ||
+          order.customerPhone.toLowerCase().includes(normalizedSearch) ||
+          order.tableCode.toLowerCase().includes(normalizedSearch) ||
+          invoice.toLowerCase().includes(normalizedSearch)
+        if (!matchesSearch) {
+          return false
+        }
+      }
+
+      if (todayBillFilter !== 'all' && order.billStatus !== todayBillFilter) {
+        return false
+      }
+
+      return true
+    })
+
+    return next.sort((a, b) => {
+      if (todaySortOption === 'amountHigh') {
+        return b.totalAmount - a.totalAmount
+      }
+
+      if (todaySortOption === 'amountLow') {
+        return a.totalAmount - b.totalAmount
+      }
+
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+  }, [todayBillFilter, todayOrders, todaySearchTerm, todaySortOption])
+
+  const todayTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredTodayOrders.length / todayPageSize)),
+    [filteredTodayOrders.length, todayPageSize]
+  )
+
+  useEffect(() => {
+    setTodayPage((current) => Math.min(current, todayTotalPages))
+  }, [todayTotalPages])
+
+  const paginatedTodayOrders = useMemo(() => {
+    const start = (todayPage - 1) * todayPageSize
+    return filteredTodayOrders.slice(start, start + todayPageSize)
+  }, [filteredTodayOrders, todayPage, todayPageSize])
+
+  const applyTodayQuickFilter = (preset: 'all' | 'paid' | 'unpaid' | 'highValue') => {
+    setTodaySearchTerm('')
+    setTodayBillFilter('all')
+    setTodaySortOption('latest')
+
+    if (preset === 'paid') {
+      setTodayBillFilter('paid')
+      return
+    }
+
+    if (preset === 'unpaid') {
+      setTodayBillFilter('unpaid')
+      return
+    }
+
+    if (preset === 'highValue') {
+      setTodaySortOption('amountHigh')
+    }
+  }
+
+  const monthlyHistory = useMemo(() => {
+    const monthlyMap = new Map<
+      string,
+      {
+        label: string
+        orders: number
+        revenue: number
+        paid: number
+        unpaid: number
+      }
+    >()
+
+    for (const order of orders) {
+      const createdAt = new Date(order.createdAt)
+      const key = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, '0')}`
+      const existing = monthlyMap.get(key)
+
+      if (existing) {
+        existing.orders += 1
+        existing.revenue += order.totalAmount
+        if (order.billStatus === 'paid') {
+          existing.paid += 1
+        } else {
+          existing.unpaid += 1
+        }
+        continue
+      }
+
+      monthlyMap.set(key, {
+        label: createdAt.toLocaleString(undefined, { month: 'long', year: 'numeric' }),
+        orders: 1,
+        revenue: order.totalAmount,
+        paid: order.billStatus === 'paid' ? 1 : 0,
+        unpaid: order.billStatus === 'unpaid' ? 1 : 0,
+      })
+    }
+
+    return Array.from(monthlyMap.entries())
+      .sort(([a], [b]) => (a < b ? 1 : -1))
+      .map(([key, value]) => ({ key, ...value }))
+  }, [orders])
+
+  const monthlyPeak = useMemo(() => {
+    if (monthlyHistory.length === 0) {
+      return 0
+    }
+
+    return Math.max(...monthlyHistory.map((month) => month.revenue))
+  }, [monthlyHistory])
+
+  const panelClass =
+    'rounded-2xl border border-slate-700/80 bg-slate-800/85 p-4 shadow-lg shadow-black/10'
+
+  const inputClass =
+    'min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none ring-amber-400/40 placeholder:text-slate-500 focus:ring'
+
   return (
-    <>
-      <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-100">
+    <section className="relative space-y-5 rounded-[28px] border border-slate-700/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.38)]">
+      <PageToastStack
+        notifications={[
+          ...(loading ? [{ id: 'loading', message: 'Loading dashboard...', variant: 'info' as const }] : []),
+          ...(error ? [{ id: 'error', message: error, variant: 'error' as const }] : []),
+          ...(success ? [{ id: 'success', message: success, variant: 'success' as const }] : []),
+          ...(passwordError ? [{ id: 'password-error', message: passwordError, variant: 'error' as const }] : []),
+          ...(passwordMessage ? [{ id: 'password-message', message: passwordMessage, variant: 'success' as const }] : []),
+        ]}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Admin Control Dashboard</h2>
-          <p className="text-sm text-slate-500">Control customer-visible items and track order lifecycle.</p>
+          <h2 className="text-2xl font-bold text-slate-50">Dashboard</h2>
+          <p className="text-sm text-slate-400">Professional operations overview with today transactions and monthly history.</p>
         </div>
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => void loadAll()}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            onClick={() => void loadOverview()}
+            className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700"
           >
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => void logoutAdmin()}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            Logout
+            Refresh Dashboard
           </button>
         </div>
       </div>
 
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article className="rounded-2xl border border-sky-900/50 bg-[linear-gradient(135deg,rgba(8,47,73,0.95)_0%,rgba(15,23,42,0.98)_100%)] p-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-sky-300">Today Transactions</p>
+          <p className="mt-2 text-3xl font-bold text-slate-50">{todayOrders.length}</p>
+          <p className="mt-1 text-sm text-slate-400">Orders created today</p>
+        </article>
+        <article className="rounded-2xl border border-emerald-900/50 bg-[linear-gradient(135deg,rgba(6,78,59,0.95)_0%,rgba(15,23,42,0.98)_100%)] p-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-emerald-300">Today Revenue</p>
+          <p className="mt-2 text-lg font-semibold text-slate-50">Rs. {todayRevenue.toFixed(2)}</p>
+          <p className="mt-1 text-sm text-slate-400">Collected from today's transactions</p>
+        </article>
+        <article className="rounded-2xl border border-amber-900/50 bg-[linear-gradient(135deg,rgba(120,53,15,0.95)_0%,rgba(15,23,42,0.98)_100%)] p-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-amber-300">Pending Bills</p>
+          <p className="mt-2 text-3xl font-bold text-slate-50">{unpaidOrders}</p>
+          <p className="mt-1 text-sm text-slate-400">Unpaid across all recorded orders</p>
+        </article>
+        <article className="rounded-2xl border border-violet-900/50 bg-[linear-gradient(135deg,rgba(76,29,149,0.92)_0%,rgba(15,23,42,0.98)_100%)] p-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-violet-300">Gross Revenue</p>
+          <p className="mt-2 text-lg font-semibold text-slate-50">Rs. {grossRevenue.toFixed(2)}</p>
+          <p className="mt-1 text-sm text-slate-400">Sum of recorded orders</p>
+        </article>
+      </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <h3 className="text-base font-semibold text-slate-900">Change Admin Password</h3>
-        <p className="mt-1 text-sm text-slate-500">Update your admin password securely.</p>
+      <article className={panelClass}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-100">Today Transactions</h3>
+            <p className="text-sm text-slate-400">Live register of today's customer orders and bill state.</p>
+          </div>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+            {now.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+          </p>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <input
+            value={todaySearchTerm}
+            onChange={(event) => setTodaySearchTerm(event.target.value)}
+            placeholder="Search customer, phone, table, invoice"
+            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+          />
+          <select
+            value={todayBillFilter}
+            onChange={(event) => setTodayBillFilter(event.target.value as 'all' | 'paid' | 'unpaid')}
+            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+          >
+            <option value="all">All bill status</option>
+            <option value="paid">Paid</option>
+            <option value="unpaid">Unpaid</option>
+          </select>
+          <select
+            value={todaySortOption}
+            onChange={(event) => setTodaySortOption(event.target.value as 'latest' | 'amountHigh' | 'amountLow')}
+            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+          >
+            <option value="latest">Sort: Latest</option>
+            <option value="amountHigh">Sort: Amount High-Low</option>
+            <option value="amountLow">Sort: Amount Low-High</option>
+          </select>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" onClick={() => applyTodayQuickFilter('all')} className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700">All Today</button>
+          <button type="button" onClick={() => applyTodayQuickFilter('paid')} className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/30">Paid</button>
+          <button type="button" onClick={() => applyTodayQuickFilter('unpaid')} className="rounded-full border border-amber-500/30 bg-amber-950/20 px-3 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-900/30">Unpaid</button>
+          <button type="button" onClick={() => applyTodayQuickFilter('highValue')} className="rounded-full border border-violet-500/30 bg-violet-950/20 px-3 py-1 text-xs font-semibold text-violet-300 hover:bg-violet-900/30">High Value First</button>
+        </div>
+
+        <p className="mt-3 text-xs text-slate-400">Showing {filteredTodayOrders.length} of {todayOrders.length} transactions.</p>
+
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-700 bg-slate-900/70">
+          <table className="min-w-full divide-y divide-slate-700 text-sm">
+            <thead className="bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-400">
+              <tr>
+                <th className="px-3 py-2">Time</th>
+                <th className="px-3 py-2">Invoice</th>
+                <th className="px-3 py-2">Customer</th>
+                <th className="px-3 py-2">Table</th>
+                <th className="px-3 py-2">Bill</th>
+                <th className="px-3 py-2">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800 bg-slate-900/40">
+              {paginatedTodayOrders.map((order) => (
+                <tr key={order._id}>
+                  <td className="px-3 py-2 text-slate-400">{new Date(order.createdAt).toLocaleTimeString()}</td>
+                  <td className="px-3 py-2 font-medium text-slate-100">{order.invoiceNumber ?? `ORD-${order._id.slice(-6).toUpperCase()}`}</td>
+                  <td className="px-3 py-2 text-slate-300">{order.customerName}</td>
+                  <td className="px-3 py-2 text-slate-300">{order.tableCode}</td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                        order.billStatus === 'paid'
+                          ? 'bg-emerald-950/60 text-emerald-300'
+                          : 'bg-amber-950/60 text-amber-300'
+                      }`}
+                    >
+                      {order.billStatus}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-slate-300">Rs. {order.totalAmount.toFixed(2)}</td>
+                </tr>
+              ))}
+              {!loading && filteredTodayOrders.length === 0 ? (
+                <tr>
+                  <td className="px-3 py-4 text-center text-slate-400" colSpan={6}>
+                    No transactions recorded for today.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        <AdminPagination
+          totalItems={filteredTodayOrders.length}
+          currentPage={todayPage}
+          pageSize={todayPageSize}
+          onPageChange={setTodayPage}
+          onPageSizeChange={(size) => {
+            setTodayPageSize(size)
+            setTodayPage(1)
+          }}
+          label="today transactions"
+        />
+      </article>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <article className={panelClass}>
+          <h3 className="text-lg font-semibold text-slate-100">Shop Snapshot</h3>
+          <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
+            <p className="rounded-lg bg-slate-900/70 px-3 py-2">Categories: <span className="font-semibold text-slate-100">{categories.length}</span></p>
+            <p className="rounded-lg bg-slate-900/70 px-3 py-2">Tables: <span className="font-semibold text-slate-100">{tables.length}</span></p>
+            <p className="rounded-lg bg-slate-900/70 px-3 py-2">Active Tables: <span className="font-semibold text-slate-100">{activeTables}</span></p>
+            <p className="rounded-lg bg-slate-900/70 px-3 py-2">Visible Items: <span className="font-semibold text-slate-100">{activeItems}</span></p>
+          </div>
+        </article>
+
+        <article className={panelClass}>
+          <h3 className="text-lg font-semibold text-slate-100">Monthly Wise History</h3>
+          <p className="text-sm text-slate-400">Month-by-month transaction summary with revenue trend.</p>
+          <div className="mt-3 space-y-3">
+            {monthlyHistory.map((month) => {
+              const widthPercent = monthlyPeak > 0 ? (month.revenue / monthlyPeak) * 100 : 0
+
+              return (
+                <div key={month.key} className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-slate-100">{month.label}</p>
+                    <p className="text-sm font-semibold text-slate-300">Rs. {month.revenue.toFixed(2)}</p>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-2 rounded-full bg-gradient-to-r from-sky-500 to-emerald-500"
+                      style={{ width: `${Math.max(widthPercent, 6)}%` }}
+                    ></div>
+                  </div>
+                  <div className="mt-2 grid gap-2 text-xs text-slate-400 sm:grid-cols-3">
+                    <p>Orders: <span className="font-semibold text-slate-100">{month.orders}</span></p>
+                    <p>Paid: <span className="font-semibold text-emerald-700">{month.paid}</span></p>
+                    <p>Unpaid: <span className="font-semibold text-amber-700">{month.unpaid}</span></p>
+                  </div>
+                </div>
+              )
+            })}
+            {!loading && monthlyHistory.length === 0 ? (
+              <p className="text-sm text-slate-400">No monthly history available yet.</p>
+            ) : null}
+          </div>
+        </article>
+      </div>
+
+      <article className={panelClass}>
+        <h3 className="text-lg font-semibold text-slate-100">Change Admin Password</h3>
+        <p className="mt-1 text-sm text-slate-400">Update your admin password securely.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <div className="flex gap-2">
             <input
@@ -493,12 +490,12 @@ function AdminDashboardPage() {
               onChange={(event) => setCurrentPassword(event.target.value)}
               placeholder="Current Password"
               type={showCurrentPassword ? 'text' : 'password'}
-              className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-amber-200 focus:ring"
+              className={inputClass}
             />
             <button
               type="button"
               onClick={() => setShowCurrentPassword((value) => !value)}
-              className="rounded-xl border border-slate-300 px-3 text-sm text-slate-700 hover:bg-white"
+              className="rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200 hover:bg-slate-800"
             >
               {showCurrentPassword ? 'Hide' : 'Show'}
             </button>
@@ -509,12 +506,12 @@ function AdminDashboardPage() {
               onChange={(event) => setNewPassword(event.target.value)}
               placeholder="New Password"
               type={showNewPassword ? 'text' : 'password'}
-              className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-amber-200 focus:ring"
+              className={inputClass}
             />
             <button
               type="button"
               onClick={() => setShowNewPassword((value) => !value)}
-              className="rounded-xl border border-slate-300 px-3 text-sm text-slate-700 hover:bg-white"
+              className="rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200 hover:bg-slate-800"
             >
               {showNewPassword ? 'Hide' : 'Show'}
             </button>
@@ -525,507 +522,40 @@ function AdminDashboardPage() {
               onChange={(event) => setConfirmPassword(event.target.value)}
               placeholder="Confirm New Password"
               type={showConfirmPassword ? 'text' : 'password'}
-              className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-amber-200 focus:ring"
+              className={inputClass}
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword((value) => !value)}
-              className="rounded-xl border border-slate-300 px-3 text-sm text-slate-700 hover:bg-white"
+              className="rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200 hover:bg-slate-800"
             >
               {showConfirmPassword ? 'Hide' : 'Show'}
             </button>
           </div>
         </div>
+
         <div className="mt-3">
-          <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
+          <div className="mb-1 flex items-center justify-between text-xs text-slate-400">
             <span>Password Strength</span>
             <span>{passwordStrength.label}</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-            <div
-              className={`h-2 transition-all ${passwordStrength.color} ${passwordStrength.width}`}
-            ></div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-900">
+            <div className={`h-2 transition-all ${passwordStrength.color} ${passwordStrength.width}`}></div>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-400">
             Use at least 8 characters including upper, lower, number, and symbol.
           </p>
         </div>
-        {passwordError ? (
-          <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{passwordError}</p>
-        ) : null}
-        {passwordMessage ? (
-          <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{passwordMessage}</p>
-        ) : null}
+
         <button
           type="button"
           onClick={() => void submitPasswordChange()}
-          className="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          className="mt-3 rounded-xl bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-300"
         >
           Change Password
         </button>
-      </div>
-
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
-        <h3 className="text-base font-semibold text-slate-900">Create Category</h3>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <input
-            value={newCategoryName}
-            onChange={(event) => setNewCategoryName(event.target.value)}
-            placeholder="Category Name"
-            className="sm:col-span-2 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-amber-200 focus:ring"
-          />
-          <button
-            type="button"
-            onClick={addCategory}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            Add Category
-          </button>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {categories.map((entry) => (
-            <div
-              key={entry._id}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700"
-            >
-              {entry.name}
-              <button
-                type="button"
-                onClick={() => void renameCategory(entry)}
-                className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] text-slate-600 hover:bg-slate-100"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => void removeCategory(entry)}
-                className="rounded-full border border-red-200 px-2 py-0.5 text-[10px] text-red-600 hover:bg-red-50"
-              >
-                Delete
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
-        <h3 className="text-base font-semibold text-slate-900">Create Table</h3>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <input
-            value={tableCode}
-            onChange={(event) => setTableCode(event.target.value.toUpperCase())}
-            placeholder="Table Code (e.g. T-01)"
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-sky-200 focus:ring"
-          />
-          <input
-            value={tableLabel}
-            onChange={(event) => setTableLabel(event.target.value)}
-            placeholder="Table Label (e.g. Window Table)"
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-sky-200 focus:ring"
-          />
-          <button
-            type="button"
-            onClick={addTable}
-            className="rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800"
-          >
-            Add Table
-          </button>
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {tables.map((entry) => (
-            <div key={entry._id} className="rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm">
-              <p className="font-semibold text-slate-800">{entry.code}</p>
-              <p className="text-slate-600">{entry.label}</p>
-              <p className={`mt-1 text-xs ${entry.active ? 'text-emerald-600' : 'text-red-600'}`}>
-                {entry.active ? 'Active' : 'Inactive'}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void editTable(entry)}
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void toggleTableActive(entry)}
-                  className="rounded-lg border border-sky-200 px-2 py-1 text-xs text-sky-700 hover:bg-sky-50"
-                >
-                  {entry.active ? 'Deactivate' : 'Activate'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void removeTable(entry)}
-                  className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
-        <h3 className="text-base font-semibold text-slate-900">Add New Menu Item</h3>
-        <div className="mt-3 grid gap-3 sm:grid-cols-4">
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Item Name"
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-amber-200 focus:ring"
-          />
-          <input
-            value={price}
-            onChange={(event) => setPrice(event.target.value)}
-            placeholder="Price"
-            type="number"
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-amber-200 focus:ring"
-          />
-          <input
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            placeholder="Category"
-            list="category-options"
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-amber-200 focus:ring"
-          />
-          <datalist id="category-options">
-            {categories.map((entry) => (
-              <option key={entry._id} value={entry.name} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={addMenuItem}
-            className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
-          >
-            Add Item
-          </button>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="mb-3 text-lg font-semibold text-slate-900">Menu Visibility Control</h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
-            <article key={item._id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <h4 className="font-semibold text-slate-900">{item.name}</h4>
-              <p className="text-sm text-slate-500">{item.category}</p>
-              <p className="mt-1 text-amber-700">Rs. {item.price.toFixed(2)}</p>
-              <p className={`mt-2 text-sm ${item.available ? 'text-emerald-700' : 'text-red-600'}`}>
-                {item.available ? 'Visible to customers' : 'Hidden from customers'}
-              </p>
-              <button
-                type="button"
-                onClick={() => toggleAvailability(item)}
-                className="mt-3 rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white"
-              >
-                {item.available ? 'Hide Item' : 'Show Item'}
-              </button>
-            </article>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="mb-3 text-lg font-semibold text-slate-900">Live Customer Orders</h3>
-        <div className="space-y-3">
-          {orders.map((order) => (
-            <article key={order._id} className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <p className="font-semibold text-slate-900">
-                  {order.customerName} | Table {order.tableCode}
-                </p>
-                <p className="text-sm text-slate-500">{new Date(order.createdAt).toLocaleString()}</p>
-              </div>
-              <p className="text-sm text-slate-500">Phone: {order.customerPhone}</p>
-              <p className="mt-1 text-sm text-slate-700">Total: Rs. {order.totalAmount.toFixed(2)}</p>
-              <p className="mt-1 text-sm text-slate-700">Status: {order.status}</p>
-              <p className="mt-1 text-sm text-slate-700">Bill: {order.billStatus}</p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {(['accepted', 'preparing', 'served', 'cancelled'] as OrderStatus[]).map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => setStatus(order._id, status)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${
-                      status === order.status
-                        ? 'bg-amber-200 text-amber-900'
-                        : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-2 flex flex-wrap gap-2">
-                {(['unpaid', 'paid'] as BillStatus[]).map((billStatus) => (
-                  <button
-                    key={billStatus}
-                    type="button"
-                    onClick={() => setBillStatus(order._id, billStatus)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${
-                      billStatus === order.billStatus
-                        ? 'bg-sky-200 text-sky-900'
-                        : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    {billStatus}
-                  </button>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-      </section>
-
-      <div className="fixed right-4 top-4 z-[60] space-y-2">
-        {error ? (
-          <div className="w-[min(92vw,360px)] rounded-xl border border-red-200 bg-white p-3 text-sm text-red-700 shadow-lg transition-all duration-300">
-            <div className="flex items-start justify-between gap-3">
-              <p className="font-medium">{error}</p>
-              <button
-                type="button"
-                onClick={() => setError('')}
-                className="rounded-md px-2 py-0.5 text-xs text-red-600 hover:bg-red-50"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {success ? (
-          <div className="w-[min(92vw,360px)] rounded-xl border border-emerald-200 bg-white p-3 text-sm text-emerald-700 shadow-lg transition-all duration-300">
-            <div className="flex items-start justify-between gap-3">
-              <p className="font-medium">{success}</p>
-              <button
-                type="button"
-                onClick={() => setSuccess('')}
-                className="rounded-md px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {editingCategory ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
-          onMouseDown={handleBackdropMouseDown}
-        >
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              void saveCategoryEdit()
-            }}
-            ref={(node) => {
-              modalCardRef.current = node
-            }}
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Edit category dialog"
-          >
-            <h3 className="text-base font-semibold text-slate-900">Edit Category</h3>
-            <p className="mt-1 text-sm text-slate-500">Update the category name used in your menu.</p>
-            <input
-              value={editingCategory.name}
-              onChange={(event) =>
-                setEditingCategory((value) =>
-                  value
-                    ? {
-                        ...value,
-                        name: event.target.value,
-                      }
-                    : value
-                )
-              }
-              placeholder="Category name"
-              autoFocus
-              className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-amber-200 focus:ring"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={modalBusy}
-                onClick={closeAllModals}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={modalBusy}
-                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {modalBusy ? 'Saving...' : 'Save Category'}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
-
-      {deletingCategory ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
-          onMouseDown={handleBackdropMouseDown}
-        >
-          <div
-            ref={(node) => {
-              modalCardRef.current = node
-            }}
-            className="w-full max-w-md rounded-2xl border border-red-100 bg-white p-5 shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Delete category dialog"
-          >
-            <h3 className="text-base font-semibold text-slate-900">Delete Category</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Delete <span className="font-semibold text-slate-900">{deletingCategory.name}</span>? This cannot be undone.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={modalBusy}
-                onClick={closeAllModals}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={modalBusy}
-                onClick={() => void confirmCategoryDelete()}
-                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {modalBusy ? 'Deleting...' : 'Delete Category'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {editingTable ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
-          onMouseDown={handleBackdropMouseDown}
-        >
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              void saveTableEdit()
-            }}
-            ref={(node) => {
-              modalCardRef.current = node
-            }}
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Edit table dialog"
-          >
-            <h3 className="text-base font-semibold text-slate-900">Edit Table</h3>
-            <p className="mt-1 text-sm text-slate-500">Update table code and label shown to staff and customers.</p>
-            <div className="mt-3 space-y-3">
-              <input
-                value={editingTable.code}
-                onChange={(event) =>
-                  setEditingTable((value) =>
-                    value
-                      ? {
-                          ...value,
-                          code: event.target.value.toUpperCase(),
-                        }
-                      : value
-                  )
-                }
-                placeholder="Table code"
-                autoFocus
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-sky-200 focus:ring"
-              />
-              <input
-                value={editingTable.label}
-                onChange={(event) =>
-                  setEditingTable((value) =>
-                    value
-                      ? {
-                          ...value,
-                          label: event.target.value,
-                        }
-                      : value
-                  )
-                }
-                placeholder="Table label"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-sky-200 focus:ring"
-              />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={modalBusy}
-                onClick={closeAllModals}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={modalBusy}
-                className="rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {modalBusy ? 'Saving...' : 'Save Table'}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
-
-      {deletingTable ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"
-          onMouseDown={handleBackdropMouseDown}
-        >
-          <div
-            ref={(node) => {
-              modalCardRef.current = node
-            }}
-            className="w-full max-w-md rounded-2xl border border-red-100 bg-white p-5 shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Delete table dialog"
-          >
-            <h3 className="text-base font-semibold text-slate-900">Delete Table</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Delete table <span className="font-semibold text-slate-900">{deletingTable.code}</span> ({deletingTable.label})?
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={modalBusy}
-                onClick={closeAllModals}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={modalBusy}
-                onClick={() => void confirmTableDelete()}
-                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {modalBusy ? 'Deleting...' : 'Delete Table'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </>
+      </article>
+    </section>
   )
 }
 

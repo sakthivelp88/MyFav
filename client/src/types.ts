@@ -1,8 +1,9 @@
-export type Role = 'customer' | 'admin'
-
 export type Item = {
   _id: string
   name: string
+  stockQuantity: number
+  stockUnit: 'kg' | 'gram' | 'numbers' | 'litre'
+  weightage: string
   price: number
   category: string
   available: boolean
@@ -23,6 +24,9 @@ export type DiningTable = {
 
 export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'served' | 'cancelled'
 export type BillStatus = 'unpaid' | 'paid'
+export type PaymentMethod = 'cash' | 'upi' | 'card' | 'razorpay'
+export type PaymentStatus = 'pending' | 'paid'
+export type FeedbackStatus = 'new' | 'reviewed' | 'resolved'
 
 export type Order = {
   _id: string
@@ -33,6 +37,9 @@ export type Order = {
   totalAmount: number
   status: OrderStatus
   billStatus: BillStatus
+  paymentStatus: PaymentStatus
+  paymentMethod: PaymentMethod | null
+  paymentPaidAt: string | null
   billSettledAt: string | null
   createdAt: string
   items: Array<{
@@ -78,4 +85,13 @@ export type CustomerBillingSummary = {
   totalSpent: number
   unpaidAmount: number
   lastOrderedAt: string
+}
+
+export type Feedback = {
+  _id: string
+  customerName: string
+  customerPhone: string
+  message: string
+  status: FeedbackStatus
+  createdAt: string
 }

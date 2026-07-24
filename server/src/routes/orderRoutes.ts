@@ -3,6 +3,8 @@ import {
   createOrder,
   getLatestCustomerOrder,
   listOrders,
+  payForOrder,
+  updateCustomerOrder,
   updateOrderBillStatus,
   updateOrderStatus,
 } from '../controllers/orderController.js'
@@ -14,6 +16,8 @@ const router = Router()
 router.post('/', asyncHandler(createOrder))
 router.get('/', asyncHandler(listOrders))
 router.get('/latest', asyncHandler(getLatestCustomerOrder))
+router.patch('/:id', asyncHandler(updateCustomerOrder))
+router.post('/:id/pay', asyncHandler(payForOrder))
 router.patch('/:id/status', asyncHandler(async (req, res) => {
   requireAdminCsrf(req)
   await updateOrderStatus(req, res)

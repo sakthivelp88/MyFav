@@ -5,13 +5,13 @@ import session from 'express-session'
 import MongoStore from 'connect-mongo'
 import connectDB from './src/config/db.js'
 import ensureDefaultAdmin from './src/config/seedAdmin.js'
-import shopRoutes from './src/routes/shopRoutes.js'
 import itemRoutes from './src/routes/itemRoutes.js'
 import orderRoutes from './src/routes/orderRoutes.js'
 import authRoutes from './src/routes/authRoutes.js'
 import categoryRoutes from './src/routes/categoryRoutes.js'
 import tableRoutes from './src/routes/tableRoutes.js'
 import customerRoutes from './src/routes/customerRoutes.js'
+import feedbackRoutes from './src/routes/feedbackRoutes.js'
 import HttpError from './src/utils/httpError.js'
 
 const app = express()
@@ -53,12 +53,12 @@ app.get('/api/health', (_req: Request, res: Response) => {
 })
 
 app.use('/api/auth', authRoutes)
-app.use('/api/shops', shopRoutes)
 app.use('/api/items', itemRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/categories', categoryRoutes)
 app.use('/api/tables', tableRoutes)
 app.use('/api/customers', customerRoutes)
+app.use('/api/feedback', feedbackRoutes)
 
 app.use((_req: Request, res: Response) => {
 	res.status(404).json({ message: 'Route not found' })

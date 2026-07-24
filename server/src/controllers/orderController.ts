@@ -10,32 +10,7 @@ type CreateOrderItem = {
   quantity: number
 }
 
-const buildInvoiceNumber = () => {
-  const now = new Date()
-  const yyyy = String(now.getFullYear())
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const dd = String(now.getDate()).padStart(2, '0')
-  const random = Math.floor(1000 + Math.random() * 9000)
-
-  return `INV-${yyyy}${mm}${dd}-${random}`
-}
-
-export const createOrder = async (req: Request, res: Response) => {
-  const { customerName, customerPhone, tableCode, items } = req.body as {
-    customerName?: string
-    customerPhone?: string
-    tableCode?: string
-    items?: CreateOrderItem[]
-  }
-
-  if (!customerName || !customerPhone || !tableCode) {
-    throw new HttpError('customerName, customerPhone and tableCode are required', 400)
-  }
-
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new HttpError('At least one item is required', 400)
-  }
-
+const normalizeOrderItems = async (items: CreateOrderItem[]) => {
   const itemIds = items.map((entry) => entry.itemId)
   const dbItems = await ItemModel.find({ _id: { $in: itemIds }, available: true })
 
@@ -63,6 +38,132 @@ export const createOrder = async (req: Request, res: Response) => {
     }
   })
 
+  return {
+    normalizedItems,
+    dbItems,
+  }
+}
+
+const ensureNumberStockAvailable = (
+  dbItems: Awaited<ReturnType<typeof ItemModel.find>>,
+  items: CreateOrderItem[]
+) => {
+  for (const entry of items) {
+    const item = dbItems.find((dbItem) => dbItem.id === entry.itemId)
+
+    if (!item || item.stockUnit !== 'numbers') {
+      continue
+    }
+
+    if (item.stockQuantity < entry.quantity) {
+      throw new HttpError(`Insufficient stock for ${item.name}`, 400)
+    }
+  }
+}
+
+const applyNumberStockForCreate = async (
+  dbItems: Awaited<ReturnType<typeof ItemModel.find>>,
+  items: CreateOrderItem[]
+) => {
+  for (const entry of items) {
+    const item = dbItems.find((dbItem) => dbItem.id === entry.itemId)
+
+    if (!item || item.stockUnit !== 'numbers') {
+      continue
+    }
+
+    item.stockQuantity -= entry.quantity
+    if (item.stockQuantity <= 0) {
+      item.stockQuantity = 0
+      item.available = false
+    }
+    await item.save()
+  }
+}
+
+const reconcileNumberStockForOrderEdit = async (
+  existingOrder: {
+    items: Array<{
+      itemId: { toString(): string } | string
+      quantity: number
+    }>
+  } | null,
+  nextItems: CreateOrderItem[]
+) => {
+  if (!existingOrder) {
+    return
+  }
+
+  const previousMap = new Map<string, number>()
+  for (const item of existingOrder.items) {
+    previousMap.set(String(item.itemId), item.quantity)
+  }
+
+  const nextMap = new Map(nextItems.map((item) => [item.itemId, item.quantity]))
+  const affectedIds = Array.from(new Set([...previousMap.keys(), ...nextMap.keys()]))
+  const dbItems = await ItemModel.find({ _id: { $in: affectedIds } })
+
+  for (const item of dbItems) {
+    if (item.stockUnit !== 'numbers') {
+      continue
+    }
+
+    const previousQty = previousMap.get(item.id) ?? 0
+    const nextQty = nextMap.get(item.id) ?? 0
+    const delta = nextQty - previousQty
+
+    if (delta > 0 && item.stockQuantity < delta) {
+      throw new HttpError(`Insufficient stock for ${item.name}`, 400)
+    }
+  }
+
+  for (const item of dbItems) {
+    if (item.stockUnit !== 'numbers') {
+      continue
+    }
+
+    const previousQty = previousMap.get(item.id) ?? 0
+    const nextQty = nextMap.get(item.id) ?? 0
+    const delta = nextQty - previousQty
+
+    item.stockQuantity -= delta
+    if (item.stockQuantity < 0) {
+      item.stockQuantity = 0
+    }
+    item.available = item.stockQuantity > 0
+    await item.save()
+  }
+}
+
+const buildInvoiceNumber = () => {
+  const now = new Date()
+  const yyyy = String(now.getFullYear())
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  const random = Math.floor(1000 + Math.random() * 9000)
+
+  return `INV-${yyyy}${mm}${dd}-${random}`
+}
+
+export const createOrder = async (req: Request, res: Response) => {
+  const { customerName, customerPhone, tableCode, items } = req.body as {
+    customerName?: string
+    customerPhone?: string
+    tableCode?: string
+    items?: CreateOrderItem[]
+  }
+
+  if (!customerName || !customerPhone || !tableCode) {
+    throw new HttpError('customerName, customerPhone and tableCode are required', 400)
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new HttpError('At least one item is required', 400)
+  }
+
+  const { normalizedItems, dbItems } = await normalizeOrderItems(items)
+  ensureNumberStockAvailable(dbItems, items)
+
   const totalAmount = normalizedItems.reduce((sum, current) => sum + current.lineTotal, 0)
 
   const order = await OrderModel.create({
@@ -74,6 +175,8 @@ export const createOrder = async (req: Request, res: Response) => {
     invoiceNumber: buildInvoiceNumber(),
     status: 'pending',
     billStatus: 'unpaid',
+    paymentStatus: 'pending',
+    paymentMethod: null,
   })
 
   await CustomerModel.findOneAndUpdate(
@@ -95,6 +198,8 @@ export const createOrder = async (req: Request, res: Response) => {
       setDefaultsOnInsert: true,
     }
   )
+
+  await applyNumberStockForCreate(dbItems, items)
 
   res.status(201).json(order)
 }
@@ -203,6 +308,77 @@ export const updateOrderBillStatus = async (req: Request, res: Response) => {
   if (!order) {
     throw new HttpError('Order not found', 404)
   }
+
+  res.status(200).json(order)
+}
+
+export const updateCustomerOrder = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { customerName, customerPhone, tableCode, items } = req.body as {
+    customerName?: string
+    customerPhone?: string
+    tableCode?: string
+    items?: CreateOrderItem[]
+  }
+
+  if (!customerName?.trim() || !customerPhone?.trim() || !tableCode?.trim()) {
+    throw new HttpError('customerName, customerPhone and tableCode are required', 400)
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new HttpError('At least one item is required', 400)
+  }
+
+  const existingOrder = await OrderModel.findById(id)
+
+  if (!existingOrder) {
+    throw new HttpError('Order not found', 404)
+  }
+
+  if (existingOrder.status !== 'pending' || existingOrder.paymentStatus === 'paid') {
+    throw new HttpError('Only unpaid pending orders can be edited', 400)
+  }
+
+  const { normalizedItems } = await normalizeOrderItems(items)
+  await reconcileNumberStockForOrderEdit(existingOrder, items)
+  const totalAmount = normalizedItems.reduce((sum, current) => sum + current.lineTotal, 0)
+
+  existingOrder.set({
+    customerName: customerName.trim(),
+    customerPhone: customerPhone.trim(),
+    tableCode: tableCode.trim().toUpperCase(),
+    items: normalizedItems,
+    totalAmount,
+  })
+
+  await existingOrder.save()
+
+  res.status(200).json(existingOrder)
+}
+
+export const payForOrder = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { paymentMethod } = req.body as {
+    paymentMethod?: 'cash' | 'upi' | 'card' | 'razorpay'
+  }
+
+  if (!paymentMethod || !['cash', 'upi', 'card', 'razorpay'].includes(paymentMethod)) {
+    throw new HttpError('Invalid payment method', 400)
+  }
+
+  const order = await OrderModel.findById(id)
+
+  if (!order) {
+    throw new HttpError('Order not found', 404)
+  }
+
+  order.paymentMethod = paymentMethod
+  order.paymentStatus = 'paid'
+  order.paymentPaidAt = new Date()
+  order.billStatus = 'paid'
+  order.billSettledAt = new Date()
+
+  await order.save()
 
   res.status(200).json(order)
 }

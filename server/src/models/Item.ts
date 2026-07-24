@@ -7,6 +7,25 @@ const itemSchema = new Schema(
       required: true,
       trim: true,
     },
+    stockQuantity: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    stockUnit: {
+      type: String,
+      enum: ['kg', 'gram', 'numbers', 'litre'],
+      required: true,
+      default: 'numbers',
+      trim: true,
+    },
+    weightage: {
+      type: String,
+      required: true,
+      default: 'N/A',
+      trim: true,
+    },
     price: {
       type: Number,
       required: true,
