@@ -39,7 +39,7 @@ const stepLabels: Record<BookStep, string> = {
 
 const stepNotes: Record<BookStep, string> = {
   1: 'Customer ordering portal',
-  2: 'Happy Serving... Enter name, Phone Number and table details to begin.',
+  2: 'Happy Serving...',
   3: 'Choose menu items and quantities.',
   4: 'Review the order before placing it.',
   5: 'Complete payment and finish the flow.',
@@ -573,7 +573,7 @@ function CustomerPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300">
-                    Customer Home
+                    Customer Panel
                   </span>
                   <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
                     Ready to Order
@@ -584,7 +584,7 @@ function CustomerPage() {
                 <p className="mt-3 max-w-sm text-sm leading-6 text-slate-400">Customer ordering portal</p>
 
                 <div className="mt-6 rounded-3xl border border-amber-500/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.16)_0%,rgba(30,41,59,0.15)_100%)] p-5 text-sm leading-6 text-slate-200">
-                  Place your order in a clean guided flow, review everything before confirming, and complete payment with cash, card, or UPI.
+                  Place your order, review everything before confirming, and complete payment with cash, card, or UPI.
                 </div>
 
                 <div className="mt-6 space-y-3">
@@ -626,7 +626,7 @@ function CustomerPage() {
               <div className={panelClass}>
                 {isScanMode
                   ? `Scanned table: ${tableCode || scannedTableCode}`
-                  : 'Enter the customer details and choose the table to continue.'}
+                  : 'Enter name and phone number and choose the table to continue.'}
               </div>
 
               <input

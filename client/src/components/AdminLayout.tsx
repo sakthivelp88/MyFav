@@ -16,7 +16,6 @@ function AdminLayout() {
   const notificationRef = useRef<HTMLDivElement | null>(null)
   const previousPendingCountRef = useRef(0)
   const audioContextRef = useRef<AudioContext | null>(null)
-  const isLoginPage = location.pathname === '/admin/login'
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [activeOrders, setActiveOrders] = useState<Order[]>([])
   const [feedbackNotifications, setFeedbackNotifications] = useState<Feedback[]>([])
@@ -35,17 +34,13 @@ function AdminLayout() {
   }
 
   useEffect(() => {
-    if (isLoginPage) {
-      return
-    }
-
     void loadNotifications()
     const intervalId = window.setInterval(() => {
       void loadNotifications()
     }, 8000)
 
     return () => window.clearInterval(intervalId)
-  }, [isLoginPage])
+  }, [])
 
   useEffect(() => {
     setNotificationOpen(false)
@@ -158,120 +153,118 @@ function AdminLayout() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_95%_0%,rgba(56,189,248,0.16),transparent_35%),radial-gradient(circle_at_5%_0%,rgba(245,158,11,0.14),transparent_30%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#111827_100%)] px-4 py-6 sm:px-8">
       <div className="mx-auto w-full max-w-7xl">
-        {isLoginPage ? (
-          <Outlet />
-        ) : (
-          <div className="grid items-start gap-6 lg:grid-cols-[280px,minmax(0,1fr)]">
-            <aside className="rounded-[28px] border border-slate-700/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.38)] backdrop-blur lg:sticky lg:top-6">
-              <div className="flex items-start justify-between gap-3" ref={notificationRef}>
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight text-slate-50">MyFav Admin</h1>
-                  <p className="mt-1 text-sm text-slate-400">Admin-only control room for shop operations.</p>
-                </div>
+        <div className="rounded-[28px] border border-slate-700/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] shadow-[0_28px_80px_rgba(0,0,0,0.38)] backdrop-blur">
+          <header className="flex flex-col gap-3 border-b border-slate-700/70 px-5 py-4 sm:flex-row sm:items-start sm:justify-between" ref={notificationRef}>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-50">MyFav Admin</h1>
+              <p className="mt-1 text-sm text-slate-400">Admin-only control room for shop operations.</p>
+            </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNotificationOpen((value) => !value)
-                        setHighlightNotification(false)
-                      }}
-                      className={`relative rounded-2xl border p-3 text-slate-200 transition hover:bg-slate-700 ${
-                        highlightNotification
-                          ? 'border-amber-400 bg-amber-400/10 shadow-[0_0_0_4px_rgba(251,191,36,0.18)]'
-                          : 'border-slate-700 bg-slate-800'
-                      }`}
-                      aria-label="Open order notifications"
-                    >
-                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${highlightNotification ? 'animate-pulse text-amber-300' : ''}`}>
-                        <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
-                        <path d="M10 21a2 2 0 0 0 4 0" />
-                      </svg>
-                      {totalNotificationCount > 0 ? (
-                        <span className={`absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[11px] font-bold text-slate-950 ${highlightNotification ? 'animate-pulse' : ''}`}>
-                          {totalNotificationCount}
-                        </span>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotificationOpen((value) => !value)
+                    setHighlightNotification(false)
+                  }}
+                  className={`relative rounded-2xl border p-3 text-slate-200 transition hover:bg-slate-700 ${
+                    highlightNotification
+                      ? 'border-amber-400 bg-amber-400/10 shadow-[0_0_0_4px_rgba(251,191,36,0.18)]'
+                      : 'border-slate-700 bg-slate-800'
+                  }`}
+                  aria-label="Open order notifications"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${highlightNotification ? 'animate-pulse text-amber-300' : ''}`}>
+                    <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
+                    <path d="M10 21a2 2 0 0 0 4 0" />
+                  </svg>
+                  {totalNotificationCount > 0 ? (
+                    <span className={`absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[11px] font-bold text-slate-950 ${highlightNotification ? 'animate-pulse' : ''}`}>
+                      {totalNotificationCount}
+                    </span>
+                  ) : null}
+                </button>
+
+                {notificationOpen ? (
+                  <div className="absolute right-0 top-14 z-30 w-80 rounded-3xl border border-slate-700 bg-slate-900/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur">
+                    <div className="px-2 pb-2">
+                      <p className="text-sm font-semibold text-slate-100">Admin Notifications</p>
+                      <p className="mt-1 text-xs text-slate-400">Open active orders or new customer feedback from here.</p>
+                    </div>
+
+                    <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                      {currentOrderNotifications.length > 0 ? (
+                        <div className="px-2 pt-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
+                          Current Orders
+                        </div>
                       ) : null}
-                    </button>
+                      {currentOrderNotifications.map((order) => (
+                        <button
+                          key={order._id}
+                          type="button"
+                          onClick={() => {
+                            navigate(`/admin/service?orderId=${order._id}`)
+                            setNotificationOpen(false)
+                          }}
+                          className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-left transition hover:bg-slate-700"
+                        >
+                          <p className="font-semibold text-slate-100">Table {order.tableCode}</p>
+                          <p className="mt-1 text-sm text-slate-300">{order.customerName}</p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-amber-300">Pending Order</p>
+                        </button>
+                      ))}
 
-                    {notificationOpen ? (
-                      <div className="absolute right-0 top-14 z-30 w-80 rounded-3xl border border-slate-700 bg-slate-900/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur">
-                        <div className="px-2 pb-2">
-                          <p className="text-sm font-semibold text-slate-100">Admin Notifications</p>
-                          <p className="mt-1 text-xs text-slate-400">Open active orders or new customer feedback from here.</p>
+                      {newFeedbackNotifications.length > 0 ? (
+                        <div className="px-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-300">
+                          New Feedback
                         </div>
+                      ) : null}
+                      {newFeedbackNotifications.map((entry) => (
+                        <button
+                          key={entry._id}
+                          type="button"
+                          onClick={() => {
+                            navigate('/admin/feedback')
+                            setNotificationOpen(false)
+                          }}
+                          className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-left transition hover:bg-slate-700"
+                        >
+                          <p className="font-semibold text-slate-100">{entry.customerName}</p>
+                          <p className="mt-1 text-sm text-slate-300">{entry.customerPhone}</p>
+                          <p className="mt-1 line-clamp-2 text-xs text-slate-400">{entry.message}</p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-sky-300">New Feedback</p>
+                        </button>
+                      ))}
 
-                        <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                          {currentOrderNotifications.length > 0 ? (
-                            <div className="px-2 pt-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-300">
-                              Current Orders
-                            </div>
-                          ) : null}
-                          {currentOrderNotifications.map((order) => (
-                            <button
-                              key={order._id}
-                              type="button"
-                              onClick={() => {
-                                navigate(`/admin/service?orderId=${order._id}`)
-                                setNotificationOpen(false)
-                              }}
-                              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-left transition hover:bg-slate-700"
-                            >
-                              <p className="font-semibold text-slate-100">Table {order.tableCode}</p>
-                              <p className="mt-1 text-sm text-slate-300">{order.customerName}</p>
-                              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-amber-300">Pending Order</p>
-                            </button>
-                          ))}
-
-                          {newFeedbackNotifications.length > 0 ? (
-                            <div className="px-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-300">
-                              New Feedback
-                            </div>
-                          ) : null}
-                          {newFeedbackNotifications.map((entry) => (
-                            <button
-                              key={entry._id}
-                              type="button"
-                              onClick={() => {
-                                navigate('/admin/feedback')
-                                setNotificationOpen(false)
-                              }}
-                              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-left transition hover:bg-slate-700"
-                            >
-                              <p className="font-semibold text-slate-100">{entry.customerName}</p>
-                              <p className="mt-1 text-sm text-slate-300">{entry.customerPhone}</p>
-                              <p className="mt-1 line-clamp-2 text-xs text-slate-400">{entry.message}</p>
-                              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-sky-300">New Feedback</p>
-                            </button>
-                          ))}
-
-                          {totalNotificationCount === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">
-                              No current admin notifications.
-                            </div>
-                          ) : null}
+                      {totalNotificationCount === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">
+                          No current admin notifications.
                         </div>
-                      </div>
-                    ) : null}
+                      ) : null}
+                    </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => void logoutAdmin()}
-                    className="rounded-2xl border border-slate-700 bg-slate-800 p-3 text-slate-200 transition hover:bg-slate-700"
-                    aria-label="Logout admin"
-                  >
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <path d="M16 17l5-5-5-5" />
-                      <path d="M21 12H9" />
-                    </svg>
-                  </button>
-                </div>
+                ) : null}
               </div>
 
-              <nav className="mt-6 space-y-2">
+              <button
+                type="button"
+                onClick={() => void logoutAdmin()}
+                className="rounded-2xl border border-slate-700 bg-slate-800 p-3 text-slate-200 transition hover:bg-slate-700"
+                aria-label="Logout admin"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <path d="M16 17l5-5-5-5" />
+                  <path d="M21 12H9" />
+                </svg>
+              </button>
+            </div>
+          </header>
+
+          <div className="flex items-start gap-4 p-4 sm:p-5">
+            <aside className="sticky top-6 w-[320px] shrink-0 rounded-2xl border border-slate-700/70 bg-slate-900/40 p-4">
+              <nav className="space-y-2">
                 <NavLink to="/admin/dashboard" className={navLinkClass}>
                   Dashboard
                 </NavLink>
@@ -298,16 +291,16 @@ function AdminLayout() {
                 </NavLink>
               </nav>
 
-              <div className="mt-6 rounded-2xl border border-sky-900/50 bg-sky-950/35 p-4 text-sm text-sky-200">
+              <div className="mt-5 rounded-2xl border border-sky-900/50 bg-sky-950/35 p-4 text-sm text-sky-200">
                 Customer access stays login-free through the QR menu flow.
               </div>
             </aside>
 
-            <main className="min-w-0 rounded-[28px] border border-slate-700/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.38)] backdrop-blur sm:p-6">
+            <main className="min-w-0 flex-1 rounded-2xl border border-slate-700/70 bg-slate-900/35 p-4 sm:p-5">
               <Outlet />
             </main>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
