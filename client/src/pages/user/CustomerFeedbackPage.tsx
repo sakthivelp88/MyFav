@@ -86,33 +86,33 @@ function CustomerFeedbackPage() {
   }
 
   return (
-    <section className="relative mx-auto w-full max-w-3xl rounded-[28px] border border-slate-700/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.38)]">
+    <section className="relative mx-auto w-full max-w-3xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_28px_80px_rgba(0,0,0,0.12)] dark:border-slate-700/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] dark:shadow-[0_28px_80px_rgba(0,0,0,0.38)]">
       <PageToastStack
         notifications={[
           ...(error ? [{ id: 'error', message: error, variant: 'error' as const }] : []),
           ...(success ? [{ id: 'success', message: success, variant: 'success' as const }] : []),
         ]}
       />
-      <h2 className="text-2xl font-bold text-slate-50">Customer Feedback</h2>
-      <p className="mt-1 text-sm text-slate-400">Share your experience with MyFav ordering.</p>
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Customer Feedback</h2>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Share your experience with MyFav ordering.</p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Your Name"
-          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none ring-amber-400/40 placeholder:text-slate-500 focus:ring"
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-amber-400/40 placeholder:text-slate-400 focus:ring dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
         />
         <input
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
           placeholder="Phone Number"
-          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none ring-amber-400/40 placeholder:text-slate-500 focus:ring"
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-amber-400/40 placeholder:text-slate-400 focus:ring dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
         />
       </div>
 
       <div className="mt-4">
-        <p className="text-sm font-medium text-slate-200">Rate your experience</p>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Rate your experience</p>
         <div className="mt-2 flex items-center gap-1">
           {[1, 2, 3, 4, 5].map((value) => (
             <button
@@ -125,7 +125,7 @@ function CustomerFeedbackPage() {
               <StarIcon active={value <= rating} />
             </button>
           ))}
-          <span className="ml-2 text-xs text-slate-400">{rating > 0 ? `${rating}/5` : 'Select rating'}</span>
+          <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">{rating > 0 ? `${rating}/5` : 'Select rating'}</span>
         </div>
       </div>
 
@@ -134,7 +134,7 @@ function CustomerFeedbackPage() {
         onChange={(event) => setMessage(event.target.value)}
         placeholder="Tell us what went well or what can be improved"
         rows={5}
-        className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none ring-amber-400/40 placeholder:text-slate-500 focus:ring"
+        className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-amber-400/40 placeholder:text-slate-400 focus:ring dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
       />
 
       <div className="mt-4 flex flex-wrap gap-3">
@@ -149,7 +149,7 @@ function CustomerFeedbackPage() {
         </button>
         <Link
           to="/user"
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-700"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           <ButtonIcon path="M19 12H5M11 5L4 12L11 19" />
           Back

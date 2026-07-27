@@ -104,7 +104,7 @@ function AdminPaymentManagementPage() {
   }, [filteredOrders, page, pageSize])
 
   const sectionClass =
-    'relative space-y-5 rounded-[28px] border border-slate-700/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.38)]'
+    'relative space-y-5 rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_28px_80px_rgba(0,0,0,0.12)] dark:border-slate-700/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] dark:shadow-[0_28px_80px_rgba(0,0,0,0.38)]'
 
   const setBillStatus = async (orderId: string, billStatus: BillStatus) => {
     setError('')
@@ -158,37 +158,37 @@ function AdminPaymentManagementPage() {
       />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-100">Payment Management</h2>
-          <p className="text-sm text-slate-400">Review customer payments, bill status and payment methods.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Payment Management</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Review customer payments, bill status and payment methods.</p>
         </div>
         <button
           type="button"
           onClick={() => void loadPayments()}
-          className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           Refresh Payments
         </button>
       </div>
 
-      <article className="rounded-2xl border border-slate-700 bg-slate-800/85 p-4 shadow-lg shadow-black/10">
+      <article className="rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-lg shadow-black/5 dark:border-slate-700 dark:bg-slate-800/85 dark:shadow-black/10">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search customer, phone, table, invoice"
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
           />
-          <select value={billFilter} onChange={(event) => setBillFilter(event.target.value as 'all' | BillStatus)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+          <select value={billFilter} onChange={(event) => setBillFilter(event.target.value as 'all' | BillStatus)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
             <option value="all">All bill status</option>
             <option value="unpaid">Unpaid</option>
             <option value="paid">Paid</option>
           </select>
-          <select value={paymentStatusFilter} onChange={(event) => setPaymentStatusFilter(event.target.value as 'all' | PaymentStatus)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+          <select value={paymentStatusFilter} onChange={(event) => setPaymentStatusFilter(event.target.value as 'all' | PaymentStatus)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
             <option value="all">All payment status</option>
             <option value="pending">Pending</option>
             <option value="paid">Paid</option>
           </select>
-          <select value={paymentMethodFilter} onChange={(event) => setPaymentMethodFilter(event.target.value as 'all' | PaymentMethod | 'unassigned')} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+          <select value={paymentMethodFilter} onChange={(event) => setPaymentMethodFilter(event.target.value as 'all' | PaymentMethod | 'unassigned')} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
             <option value="all">All payment methods</option>
             <option value="cash">Cash</option>
             <option value="upi">UPI</option>
@@ -196,12 +196,12 @@ function AdminPaymentManagementPage() {
             <option value="razorpay">Razorpay</option>
             <option value="unassigned">Not selected</option>
           </select>
-          <select value={amountFilter} onChange={(event) => setAmountFilter(event.target.value as 'all' | 'high' | 'low')} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+          <select value={amountFilter} onChange={(event) => setAmountFilter(event.target.value as 'all' | 'high' | 'low')} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
             <option value="all">All amounts</option>
             <option value="high">500 and above</option>
             <option value="low">Below 500</option>
           </select>
-          <select value={sortOption} onChange={(event) => setSortOption(event.target.value as 'latest' | 'amountHigh' | 'amountLow')} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+          <select value={sortOption} onChange={(event) => setSortOption(event.target.value as 'latest' | 'amountHigh' | 'amountLow')} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
             <option value="latest">Sort: Latest</option>
             <option value="amountHigh">Sort: Amount High-Low</option>
             <option value="amountLow">Sort: Amount Low-High</option>
@@ -209,27 +209,27 @@ function AdminPaymentManagementPage() {
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={() => applyQuickPaymentFilter('all')} className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700">All Payments</button>
+          <button type="button" onClick={() => applyQuickPaymentFilter('all')} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700">All Payments</button>
           <button type="button" onClick={() => applyQuickPaymentFilter('unpaid')} className="rounded-full border border-amber-500/30 bg-amber-950/20 px-3 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-900/30">Unpaid Bills</button>
           <button type="button" onClick={() => applyQuickPaymentFilter('pendingPayment')} className="rounded-full border border-rose-500/30 bg-rose-950/20 px-3 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-900/30">Pending Payments</button>
           <button type="button" onClick={() => applyQuickPaymentFilter('razorpay')} className="rounded-full border border-sky-500/30 bg-sky-950/20 px-3 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-900/30">Razorpay</button>
           <button type="button" onClick={() => applyQuickPaymentFilter('highValue')} className="rounded-full border border-violet-500/30 bg-violet-950/20 px-3 py-1 text-xs font-semibold text-violet-300 hover:bg-violet-900/30">High Value</button>
         </div>
 
-        <p className="mt-3 text-xs text-slate-400">Showing {filteredOrders.length} of {orders.length} orders.</p>
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Showing {filteredOrders.length} of {orders.length} orders.</p>
       </article>
 
       <div className="space-y-3">
         {paginatedOrders.map((order) => (
-          <article key={order._id} className="rounded-2xl border border-slate-700 bg-slate-800/85 p-4 shadow-lg shadow-black/10">
+          <article key={order._id} className="rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-lg shadow-black/5 dark:border-slate-700 dark:bg-slate-800/85 dark:shadow-black/10">
             <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <p className="font-semibold text-slate-100">{order.customerName} | Invoice {order.invoiceNumber ?? order._id.slice(-6).toUpperCase()}</p>
-                <p className="text-sm text-slate-400">{order.customerPhone} | Table {order.tableCode}</p>
-                <p className="text-sm text-slate-400">Payment method: {order.paymentMethod ?? 'not selected yet'}</p>
-                <p className="text-sm text-slate-400">Payment status: {order.paymentStatus}</p>
-                <p className="text-sm text-slate-400">Bill status: {order.billStatus}</p>
-                <p className="mt-1 text-sm font-semibold text-slate-100">Rs. {order.totalAmount.toFixed(2)}</p>
+                <p className="font-semibold text-slate-900 dark:text-slate-100">{order.customerName} | Invoice {order.invoiceNumber ?? order._id.slice(-6).toUpperCase()}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{order.customerPhone} | Table {order.tableCode}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Payment method: {order.paymentMethod ?? 'not selected yet'}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Payment status: {order.paymentStatus}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Bill status: {order.billStatus}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">Rs. {order.totalAmount.toFixed(2)}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {(['unpaid', 'paid'] as BillStatus[]).map((status) => (
@@ -251,7 +251,7 @@ function AdminPaymentManagementPage() {
           </article>
         ))}
         {!loading && filteredOrders.length === 0 ? (
-          <p className="rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-slate-400">No payment records found.</p>
+          <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">No payment records found.</p>
         ) : null}
       </div>
 

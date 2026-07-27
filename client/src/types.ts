@@ -41,7 +41,12 @@ export type Order = {
   paymentMethod: PaymentMethod | null
   paymentPaidAt: string | null
   billSettledAt: string | null
+  preparationTimeMinutes: number | null
+  scheduledAt: string | null
+  acceptedAt: string | null
+  preparingAt: string | null
   createdAt: string
+  updatedAt: string
   items: Array<{
     itemId: string
     name: string

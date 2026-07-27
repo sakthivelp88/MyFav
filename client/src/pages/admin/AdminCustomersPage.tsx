@@ -114,7 +114,7 @@ function AdminCustomersPage() {
   }
 
   const sectionClass =
-    'relative rounded-[28px] border border-slate-700/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.38)]'
+    'relative rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(0,0,0,0.08)] dark:border-slate-700/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] dark:shadow-[0_28px_80px_rgba(0,0,0,0.38)]'
 
   return (
     <section className={sectionClass}>
@@ -126,30 +126,30 @@ function AdminCustomersPage() {
       />
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-100">User Management</h2>
-          <p className="text-sm text-slate-400">Manage customer records, order history summary, and outstanding bill tracking.</p>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">User Management</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Manage customer records, order history summary, and outstanding bill tracking.</p>
         </div>
         <button
           type="button"
           onClick={() => void loadSummaries()}
-          className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           Refresh
         </button>
       </div>
 
-      <article className="mb-4 rounded-2xl border border-slate-700 bg-slate-800/85 p-4 shadow-lg shadow-black/10">
+      <article className="mb-4 rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-lg shadow-black/5 dark:border-slate-700 dark:bg-slate-800/85 dark:shadow-black/10">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search customer, phone, table"
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
           />
           <select
             value={outstandingFilter}
             onChange={(event) => setOutstandingFilter(event.target.value as 'all' | 'withOutstanding' | 'cleared')}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="all">All outstanding states</option>
             <option value="withOutstanding">With outstanding</option>
@@ -158,7 +158,7 @@ function AdminCustomersPage() {
           <select
             value={customerTierFilter}
             onChange={(event) => setCustomerTierFilter(event.target.value as 'all' | 'frequent' | 'new')}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="all">All customer tiers</option>
             <option value="frequent">Frequent (5+ orders)</option>
@@ -167,7 +167,7 @@ function AdminCustomersPage() {
           <select
             value={sortOption}
             onChange={(event) => setSortOption(event.target.value as 'latest' | 'highSpent' | 'nameAZ')}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="latest">Sort: Latest order</option>
             <option value="highSpent">Sort: Highest spent</option>
@@ -176,18 +176,18 @@ function AdminCustomersPage() {
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={() => applyQuickCustomerFilter('all')} className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700">All Customers</button>
-          <button type="button" onClick={() => applyQuickCustomerFilter('outstanding')} className="rounded-full border border-amber-500/30 bg-amber-950/20 px-3 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-900/30">Outstanding</button>
-          <button type="button" onClick={() => applyQuickCustomerFilter('frequent')} className="rounded-full border border-sky-500/30 bg-sky-950/20 px-3 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-900/30">Frequent Customers</button>
-          <button type="button" onClick={() => applyQuickCustomerFilter('new')} className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/30">New Customers</button>
+          <button type="button" onClick={() => applyQuickCustomerFilter('all')} className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700">All Customers</button>
+          <button type="button" onClick={() => applyQuickCustomerFilter('outstanding')} className="rounded-full border border-amber-500/30 bg-amber-50/20 px-3 py-1 text-xs font-semibold text-amber-600 hover:bg-amber-100/50 dark:bg-amber-950/20 dark:text-amber-300 dark:hover:bg-amber-900/30">Outstanding</button>
+          <button type="button" onClick={() => applyQuickCustomerFilter('frequent')} className="rounded-full border border-sky-500/30 bg-sky-50/20 px-3 py-1 text-xs font-semibold text-sky-600 hover:bg-sky-100/50 dark:bg-sky-950/20 dark:text-sky-300 dark:hover:bg-sky-900/30">Frequent Customers</button>
+          <button type="button" onClick={() => applyQuickCustomerFilter('new')} className="rounded-full border border-emerald-500/30 bg-emerald-50/20 px-3 py-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-100/50 dark:bg-emerald-950/20 dark:text-emerald-300 dark:hover:bg-emerald-900/30">New Customers</button>
         </div>
 
-        <p className="mt-3 text-xs text-slate-400">Showing {filteredRows.length} of {rows.length} customers.</p>
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Showing {filteredRows.length} of {rows.length} customers.</p>
       </article>
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-slate-700 bg-slate-900/60">
-        <table className="min-w-full divide-y divide-slate-700 text-sm">
-          <thead className="bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-400">
+      <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-900/60">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+          <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
             <tr>
               <th className="px-3 py-2">Customer</th>
               <th className="px-3 py-2">Phone</th>
@@ -198,31 +198,31 @@ function AdminCustomersPage() {
               <th className="px-3 py-2">Last Order</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800 bg-slate-900/40">
+          <tbody className="divide-y divide-slate-100 bg-white/40 dark:divide-slate-800 dark:bg-slate-900/40">
             {paginatedRows.map((row) => (
               <tr key={`${row.customerPhone}-${row.lastOrderedAt}`}>
-                <td className="px-3 py-2 font-medium text-slate-100">{row.customerName}</td>
-                <td className="px-3 py-2 text-slate-300">{row.customerPhone}</td>
-                <td className="px-3 py-2 text-slate-300">{row.lastTableCode}</td>
-                <td className="px-3 py-2 text-slate-300">{row.totalOrders}</td>
-                <td className="px-3 py-2 text-slate-300">Rs. {row.totalSpent.toFixed(2)}</td>
+                <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{row.customerName}</td>
+                <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{row.customerPhone}</td>
+                <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{row.lastTableCode}</td>
+                <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{row.totalOrders}</td>
+                <td className="px-3 py-2 text-slate-600 dark:text-slate-300">Rs. {row.totalSpent.toFixed(2)}</td>
                 <td className="px-3 py-2">
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-semibold ${
                       row.unpaidAmount > 0
-                        ? 'bg-amber-950/60 text-amber-300'
-                        : 'bg-emerald-950/60 text-emerald-300'
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
                     }`}
                   >
                     Rs. {row.unpaidAmount.toFixed(2)}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-slate-400">{new Date(row.lastOrderedAt).toLocaleString()}</td>
+                <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{new Date(row.lastOrderedAt).toLocaleString()}</td>
               </tr>
             ))}
             {!loading && filteredRows.length === 0 ? (
               <tr>
-                <td className="px-3 py-4 text-center text-slate-400" colSpan={7}>
+                <td className="px-3 py-4 text-center text-slate-500 dark:text-slate-400" colSpan={7}>
                   No customer billing records found.
                 </td>
               </tr>

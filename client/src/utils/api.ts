@@ -311,6 +311,34 @@ export const updateOrderBillStatus = (id: string, billStatus: BillStatus) =>
     body: JSON.stringify({ billStatus }),
   })
 
+export const setPreparationTime = (
+  id: string,
+  payload: { mode: 'manual' | 'auto'; preparationTimeMinutes?: number }
+) =>
+  requestWithAdminCsrf<Order>(`/api/orders/${id}/set-prep-time`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const getPendingOrders = () =>
+  requestWithAdminCsrf<Order[]>('/api/orders/pending/all', {
+    method: 'GET',
+  })
+
+export const getOrdersForAutoTransition = () =>
+  requestWithAdminCsrf<{ preparingOrders: Order[]; readyOrders: Order[] }>(
+    '/api/orders/auto-transition/check',
+    {
+      method: 'GET',
+    }
+  )
+
+export const autoTransitionOrderStatus = (id: string, targetStatus: 'preparing' | 'ready') =>
+  requestWithAdminCsrf<Order>(`/api/orders/${id}/auto-transition`, {
+    method: 'PATCH',
+    body: JSON.stringify({ targetStatus }),
+  })
+
 export const listCustomerBillingSummaries = () =>
   request<CustomerBillingSummary[]>('/api/customers/summary')
 

@@ -46,19 +46,16 @@ const stepNotes: Record<BookStep, string> = {
 }
 
 const panelClass =
-  'rounded-2xl border border-slate-700/80 bg-slate-800/85 p-4 text-sm text-slate-300 shadow-lg shadow-black/10'
+  'rounded-2xl border border-slate-200/80 bg-white/85 p-4 text-sm text-slate-600 shadow-lg shadow-black/5 dark:border-slate-700/80 dark:bg-slate-800/85 dark:text-slate-300 dark:shadow-black/10'
 
 const primaryButtonClass =
   'inline-flex w-full items-center justify-center gap-3 rounded-xl bg-amber-400 px-4 py-3 text-center text-sm font-semibold text-slate-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60'
 
 const secondaryButtonClass =
-  'inline-flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-center text-sm font-semibold text-slate-200 transition hover:bg-slate-700'
-
-const footerButtonClass =
-  'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition'
+  'inline-flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
 
 const pageCardClass =
-  'relative w-full rounded-[28px] border border-slate-700/80 bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur transition-all duration-300'
+  'relative w-full rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_28px_80px_rgba(0,0,0,0.12)] backdrop-blur transition-all duration-300 dark:border-slate-700/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98)_0%,rgba(15,23,42,0.92)_100%)] dark:shadow-[0_28px_80px_rgba(0,0,0,0.45)]'
 
 function ButtonIcon({ path }: { path: string }) {
   return (
@@ -131,6 +128,9 @@ function CustomerPage() {
   const [currentStep, setCurrentStep] = useState<BookStep>(scannedTableCode ? 2 : 1)
   const [activeCategory, setActiveCategory] = useState('')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('cash')
+  const [isPaymentGatewayOpen, setIsPaymentGatewayOpen] = useState(false)
+  const [processingPayment, setProcessingPayment] = useState(false)
+  const [prepTimeRemaining, setPrepTimeRemaining] = useState<number>(0)
 
   const isScanMode = Boolean(scannedTableCode)
   const isPaidNotificationView = currentStep === 5 && latestOrder?.paymentStatus === 'paid'
@@ -277,6 +277,25 @@ function CustomerPage() {
     return () => window.clearInterval(intervalId)
   }, [customerPhone, tableCode, lastNotifiedStatus])
 
+  // Preparation time countdown
+  useEffect(() => {
+    if (!latestOrder?.scheduledAt || latestOrder.status === 'served') {
+      setPrepTimeRemaining(0)
+      return
+    }
+
+    const updateTimer = () => {
+      const now = new Date().getTime()
+      const scheduledTime = new Date(latestOrder.scheduledAt!).getTime()
+      const remaining = Math.max(0, Math.ceil((scheduledTime - now) / 1000))
+      setPrepTimeRemaining(remaining)
+    }
+
+    updateTimer()
+    const intervalId = window.setInterval(updateTimer, 1000)
+    return () => window.clearInterval(intervalId)
+  }, [latestOrder?.scheduledAt, latestOrder?.status])
+
   const updateQty = (id: string, delta: number) => {
     setQuantities((current) => {
       const nextValue = Math.max(0, (current[id] ?? 0) + delta)
@@ -316,6 +335,19 @@ function CustomerPage() {
         invoiceNumber: latestOrder?.invoiceNumber ?? latestOrder?._id.slice(-6).toUpperCase() ?? '',
       },
     })
+  }
+
+  const goHome = () => {
+    // Reset all state to initial values
+    setCurrentStep(1)
+    setCustomerName('')
+    setCustomerPhone('')
+    setQuantities({})
+    setLatestOrder(null)
+    setError('')
+    setSuccess('')
+    setSelectedPaymentMethod('cash')
+    navigate('/')
   }
 
   const submitOrder = async () => {
@@ -368,7 +400,36 @@ function CustomerPage() {
       return
     }
 
-    setPaying(true)
+    // For Cash payments, process directly
+    if (selectedPaymentMethod === 'cash') {
+      setPaying(true)
+      setError('')
+      setSuccess('')
+
+      try {
+        const order = await payForOrder(latestOrder._id, selectedPaymentMethod)
+        setLatestOrder(order)
+        setSuccess(`Payment to be collected at counter. Order ID: ${order.invoiceNumber ?? order._id.slice(-6).toUpperCase()}`)
+        setCurrentStep(5)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Payment could not be completed')
+      } finally {
+        setPaying(false)
+      }
+      return
+    }
+
+    // For online payments, open payment gateway
+    setIsPaymentGatewayOpen(true)
+  }
+
+  const handlePaymentGatewaySuccess = async () => {
+    if (!latestOrder) {
+      setError('Order not found')
+      return
+    }
+
+    setProcessingPayment(true)
     setError('')
     setSuccess('')
 
@@ -376,12 +437,18 @@ function CustomerPage() {
       const order = await payForOrder(latestOrder._id, selectedPaymentMethod)
       setLatestOrder(order)
       setSuccess(`Payment received by ${selectedPaymentMethod.toUpperCase()}. Waiting for admin acceptance.`)
+      setIsPaymentGatewayOpen(false)
       setCurrentStep(5)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment could not be completed')
     } finally {
-      setPaying(false)
+      setProcessingPayment(false)
     }
+  }
+
+  const handlePaymentGatewayCancel = () => {
+    setIsPaymentGatewayOpen(false)
+    setError('Payment cancelled. Please try again.')
   }
 
   const goToNextStep = () => {
@@ -449,6 +516,13 @@ function CustomerPage() {
     (currentStep === 4 && submitting) ||
     (currentStep === 5 && latestOrder?.paymentStatus === 'paid') ||
     (currentStep === 5 && (!latestOrder || paying))
+
+  const formatPrepTime = (seconds: number): string => {
+    if (seconds <= 0) return 'Ready!'
+    const minutes = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`
+  }
 
   const serviceNotifications: Array<{
     id: string
@@ -778,160 +852,474 @@ function CustomerPage() {
                 </div>
 
                 {latestOrder.paymentStatus === 'paid' ? (
-                  <div className="rounded-[24px] border border-slate-700 bg-slate-800/85 p-5 shadow-lg shadow-black/10">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-300">Live Service Status</p>
-                        <p className="mt-2 text-2xl font-bold text-slate-50">Payment Confirmed</p>
-                        <p className="mt-1 text-sm text-slate-400">Track every update for this order from this notification card.</p>
-                      </div>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-950/30 text-emerald-200">
-                        <ServiceStatusIcon kind="payment" />
-                      </div>
-                    </div>
-
-                    <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-300">
-                      <p><span className="font-semibold text-slate-100">Invoice:</span> {latestOrder.invoiceNumber ?? latestOrder._id.slice(-6).toUpperCase()}</p>
-                      <p className="mt-2"><span className="font-semibold text-slate-100">Table:</span> {latestOrder.tableCode}</p>
-                      <p className="mt-2"><span className="font-semibold text-slate-100">Paid Amount:</span> Rs. {latestOrder.totalAmount.toFixed(2)}</p>
-                    </div>
-
-                    <div className="mt-4 space-y-3">
-                      {serviceNotifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`flex items-start gap-3 rounded-2xl border p-4 ${notification.accent}`}
-                        >
-                          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl border border-current/20 bg-slate-950/25">
-                            <ServiceStatusIcon kind={notification.kind} />
+                  <div className="space-y-4">
+                    {/* Payment Success Card */}
+                    <div className="rounded-[28px] border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-950/50 via-slate-800 to-slate-900 p-6 shadow-lg shadow-emerald-950/30 dark:shadow-emerald-950/20">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-300">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                            </svg>
+                            Payment Successful
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold">{notification.title}</p>
-                            <p className="mt-1 text-sm opacity-90">{notification.description}</p>
+                          <p className="mt-3 text-3xl font-bold text-slate-50">Rs. {latestOrder.totalAmount.toFixed(2)}</p>
+                          <p className="mt-1 text-sm text-slate-400">Payment received and processed successfully</p>
+                        </div>
+                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl border-2 border-emerald-500/40 bg-emerald-950/40">
+                          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-8 w-8 text-emerald-300">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                            <polyline points="22 4 12 14.01 9 11.01" />
+                          </svg>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Invoice</p>
+                          <p className="mt-2 text-lg font-bold text-slate-100">{latestOrder.invoiceNumber ?? latestOrder._id.slice(-6).toUpperCase()}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Method</p>
+                          <p className="mt-2 text-lg font-bold capitalize text-slate-100">{latestOrder.paymentMethod}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Table</p>
+                          <p className="mt-2 text-lg font-bold text-slate-100">{latestOrder.tableCode}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
+                        <p className="text-sm font-semibold text-slate-100">Order Summary</p>
+                        <div className="mt-3 max-h-40 space-y-2 overflow-y-auto">
+                          {latestOrder.items.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-sm text-slate-300">
+                              <span>{item.itemId} x {item.quantity}</span>
+                              <span className="font-medium text-slate-100">Rs. {(item.quantity * (item.quantity * 100)).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preparation Time Status */}
+                    {latestOrder.status !== 'served' && latestOrder.scheduledAt && (
+                      <div className={`rounded-2xl border-2 p-6 shadow-lg ${
+                        latestOrder.status === 'pending'
+                          ? 'border-slate-500/40 bg-gradient-to-br from-slate-950/50 via-slate-800 to-slate-900 shadow-slate-950/30'
+                          : latestOrder.status === 'accepted'
+                            ? 'border-sky-500/40 bg-gradient-to-br from-sky-950/50 via-slate-800 to-slate-900 shadow-sky-950/30'
+                            : 'border-amber-500/40 bg-gradient-to-br from-amber-950/50 via-slate-800 to-slate-900 shadow-amber-950/30'
+                      }`}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] ${
+                              latestOrder.status === 'pending'
+                                ? 'border-slate-500/30 bg-slate-500/10 text-slate-300'
+                                : latestOrder.status === 'accepted'
+                                  ? 'border-sky-500/30 bg-sky-500/10 text-sky-300'
+                                  : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                            }`}>
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                              </svg>
+                              {latestOrder.status === 'pending' ? 'Awaiting Acceptance' : latestOrder.status === 'accepted' ? 'Queued' : 'Preparing'}
+                            </div>
+                            <p className="mt-3 text-2xl font-bold text-slate-50">
+                              {prepTimeRemaining > 0 ? formatPrepTime(prepTimeRemaining) : 'Ready!'}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-400">
+                              {latestOrder.status === 'pending'
+                                ? 'Waiting for admin to accept your order'
+                                : latestOrder.status === 'accepted'
+                                  ? `Your order is queued. Estimated ready in ${formatPrepTime(prepTimeRemaining)}`
+                                  : `Your order is being prepared. Ready in ${formatPrepTime(prepTimeRemaining)}`}
+                            </p>
+                          </div>
+                          <div className={`flex h-16 w-16 items-center justify-center rounded-3xl border-2 flex-shrink-0 ${
+                            latestOrder.status === 'pending'
+                              ? 'border-slate-500/40 bg-slate-950/40'
+                              : latestOrder.status === 'accepted'
+                                ? 'border-sky-500/40 bg-sky-950/40'
+                                : 'border-amber-500/40 bg-amber-950/40'
+                          }`}>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`h-8 w-8 ${
+                              latestOrder.status === 'pending'
+                                ? 'text-slate-300'
+                                : latestOrder.status === 'accepted'
+                                  ? 'text-sky-300'
+                                  : 'text-amber-300 animate-pulse'
+                            }`}>
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    )}
+                    {serviceNotifications.length > 0 && (
+                      <div className="space-y-3">
+                        {serviceNotifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={`flex items-start gap-3 rounded-2xl border p-4 ${notification.accent}`}
+                          >
+                            <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl border border-current/20 bg-slate-950/25 flex-shrink-0">
+                              <ServiceStatusIcon kind={notification.kind} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-sm">{notification.title}</p>
+                              <p className="mt-1 text-xs opacity-90">{notification.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                    <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p className="text-sm font-semibold text-slate-100">Need anything else?</p>
-                      <p className="mt-1 text-sm text-slate-400">Share your experience once your order is served.</p>
+                    {/* Action Buttons */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={goHome}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-300"
+                      >
+                        <ButtonIcon path="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        Home
+                      </button>
                       <button
                         type="button"
                         onClick={openFeedbackPage}
-                        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
                       >
                         <ButtonIcon path="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                         Give Feedback
                       </button>
                     </div>
+
+                    {/* Help Note */}
+                    <div className="rounded-2xl border border-sky-500/30 bg-sky-950/20 p-4">
+                      <p className="text-sm font-semibold text-sky-200">✓ Payment Confirmed</p>
+                      <p className="mt-1 text-xs text-sky-300">Your payment has been recorded. The admin will accept your order and notify you when it's ready.</p>
+                    </div>
                   </div>
                 ) : (
                 <div className="grid gap-4 lg:grid-cols-[1.25fr,0.85fr]">
                   <div className="space-y-4">
-                    <div className="rounded-[24px] border border-slate-700 bg-[linear-gradient(135deg,rgba(14,165,233,0.14)_0%,rgba(15,23,42,0.96)_48%,rgba(245,158,11,0.12)_100%)] p-5 shadow-lg shadow-black/10">
+                    {/* Checkout Header Card */}
+                    <div className="rounded-[28px] border-2 border-amber-500/40 bg-gradient-to-br from-amber-950/40 via-slate-800 to-slate-900 p-6 shadow-lg shadow-amber-950/20">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-300">Secure Checkout</p>
-                          <p className="mt-2 text-2xl font-bold text-slate-50">Rs. {latestOrder.totalAmount.toFixed(2)}</p>
-                          <p className="mt-1 text-sm text-slate-400">Choose a payment method and confirm your order payment.</p>
+                          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+                              <path d="M12 1C5.9 1 1 5.9 1 12s4.9 11 11 11 11-4.9 11-11S18.1 1 12 1zm0 20c-4.97 0-9-4.03-9-9s4.03-9 9-9 9 4.03 9 9-4.03 9-9 9zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 9 15.5 9 14 9.67 14 10.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 9 8.5 9 7 9.67 7 10.5 7.67 12 8.5 12zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+                            </svg>
+                            Secure Checkout
+                          </div>
+                          <p className="mt-3 text-4xl font-bold text-slate-50">Rs. {latestOrder.totalAmount.toFixed(2)}</p>
+                          <p className="mt-2 text-sm text-slate-400">Select a payment method and complete your order</p>
                         </div>
                         <div className="rounded-2xl border border-slate-600 bg-slate-900/70 px-4 py-3 text-right">
-                          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Invoice</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-100">{latestOrder.invoiceNumber ?? latestOrder._id.slice(-6).toUpperCase()}</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Invoice #</p>
+                          <p className="mt-1 text-sm font-bold text-amber-400">{latestOrder.invoiceNumber ?? latestOrder._id.slice(-6).toUpperCase()}</p>
                         </div>
                       </div>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-                          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Order Status</p>
+                      {/* Order Status Grid */}
+                      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Order Status</p>
                           <p className="mt-2 text-sm font-semibold capitalize text-slate-100">{latestOrder.status}</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-                          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Payment Status</p>
-                          <p className="mt-2 text-sm font-semibold capitalize text-slate-100">{latestOrder.paymentStatus}</p>
+                        <div className="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Payment Status</p>
+                          <p className="mt-2 text-sm font-semibold capitalize text-amber-300">{latestOrder.paymentStatus}</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-                          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Table</p>
+                        <div className="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Table #</p>
                           <p className="mt-2 text-sm font-semibold text-slate-100">{latestOrder.tableCode}</p>
                         </div>
                       </div>
                     </div>
 
+                    {/* Payment Methods */}
                     <div className="space-y-3">
                       <div>
-                        <p className="text-sm font-semibold text-slate-100">Select payment method</p>
-                        <p className="mt-1 text-sm text-slate-400">All methods are verified and mapped to your order invoice.</p>
+                        <h3 className="text-sm font-bold text-slate-100">Select Payment Method</h3>
+                        <p className="mt-1 text-xs text-slate-400">All methods are verified and securely processed</p>
                       </div>
+
                       {paymentOptions.map((option) => (
                         <label
                           key={option.id}
-                          className={`flex cursor-pointer items-start gap-4 rounded-2xl border px-4 py-4 transition ${
+                          className={`group flex cursor-pointer items-center gap-4 rounded-2xl border-2 px-4 py-4 transition-all ${
                             selectedPaymentMethod === option.id
-                              ? 'border-sky-500 bg-sky-950/40 shadow-lg shadow-sky-950/20'
-                              : 'border-slate-700 bg-slate-800 hover:bg-slate-700/80'
+                              ? 'border-amber-500 bg-amber-950/40 shadow-lg shadow-amber-950/30'
+                              : 'border-slate-700 bg-slate-800/60 hover:border-slate-600 hover:bg-slate-800'
                           }`}
                         >
-                          <input
-                            type="radio"
-                            name="payment-method"
-                            value={option.id}
-                            checked={selectedPaymentMethod === option.id}
-                            onChange={() => setSelectedPaymentMethod(option.id)}
-                            className="mt-1 h-4 w-4"
-                          />
-                          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-600 bg-slate-900/70 text-slate-100">
+                          <div className="relative flex h-5 w-5 items-center justify-center">
+                            <input
+                              type="radio"
+                              name="payment-method"
+                              value={option.id}
+                              checked={selectedPaymentMethod === option.id}
+                              onChange={() => setSelectedPaymentMethod(option.id)}
+                              className="h-5 w-5 cursor-pointer accent-amber-400"
+                            />
+                          </div>
+                          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition ${
+                            selectedPaymentMethod === option.id
+                              ? 'border-amber-500/40 bg-amber-950/40 text-amber-300'
+                              : 'border-slate-700 bg-slate-900 text-slate-400 group-hover:border-slate-600 group-hover:bg-slate-800'
+                          }`}>
                             <PaymentMethodIcon method={option.id} />
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="font-semibold text-slate-100">{option.label}</span>
-                              {selectedPaymentMethod === option.id ? (
-                                <span className="rounded-full bg-sky-400/15 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-300">
-                                  Selected
-                                </span>
-                              ) : null}
-                            </div>
-                            <span className="mt-1 block text-sm text-slate-400">{option.note}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-100">{option.label}</p>
+                            <p className="mt-0.5 text-xs text-slate-400">{option.note}</p>
                           </div>
+                          {selectedPaymentMethod === option.id && (
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 text-amber-950 flex-shrink-0">
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                              </svg>
+                            </div>
+                          )}
                         </label>
                       ))}
                     </div>
                   </div>
 
-                  <aside className="space-y-4">
-                    <div className="rounded-[24px] border border-amber-500/30 bg-amber-950/25 p-5 shadow-lg shadow-amber-950/10">
-                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">Payment Summary</p>
-                      <div className="mt-4 space-y-3 text-sm text-slate-300">
-                        <div className="flex items-center justify-between gap-3">
+                  {/* Payment Summary Sidebar */}
+                  <aside className="space-y-3">
+                    {/* Summary Card */}
+                    <div className="rounded-[24px] border-2 border-amber-500/30 bg-gradient-to-b from-amber-950/30 to-slate-900 p-5 shadow-lg shadow-amber-950/10">
+                      <p className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300">Payment Summary</p>
+                      
+                      <div className="mt-4 space-y-3 text-sm">
+                        <div className="flex items-center justify-between text-slate-300">
                           <span>Selected Method</span>
                           <span className="font-semibold text-slate-100">{paymentOptions.find((option) => option.id === selectedPaymentMethod)?.label ?? selectedPaymentMethod}</span>
                         </div>
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center justify-between border-t border-slate-700 pt-3 text-slate-300">
                           <span>Items</span>
                           <span className="font-semibold text-slate-100">{latestOrder.items.length}</span>
                         </div>
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center justify-between text-slate-300">
                           <span>Customer</span>
-                          <span className="font-semibold text-slate-100">{latestOrder.customerName}</span>
+                          <span className="truncate text-right font-semibold text-slate-100">{latestOrder.customerName}</span>
                         </div>
                       </div>
-                      <div className="mt-4 rounded-2xl border border-amber-500/20 bg-slate-950/40 px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Payable Now</p>
-                        <p className="mt-1 text-2xl font-bold text-slate-50">Rs. {latestOrder.totalAmount.toFixed(2)}</p>
+
+                      <div className="mt-4 rounded-2xl border border-amber-500/20 bg-slate-950/50 px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Payable Amount</p>
+                        <p className="mt-1.5 text-2xl font-bold text-amber-300">Rs. {latestOrder.totalAmount.toFixed(2)}</p>
                       </div>
                     </div>
 
-                    <div className="rounded-[24px] border border-slate-700 bg-slate-800/85 p-5 shadow-lg shadow-black/10">
-                      <p className="text-sm font-semibold text-slate-100">Checkout Note</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">
-                        Your payment confirmation will be attached to this invoice and immediately reflected in the admin billing view.
+                    {/* Security Note */}
+                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4">
+                      <p className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+                          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+                        </svg>
+                        Secure Payment
                       </p>
+                      <p className="mt-1.5 text-[11px] text-emerald-200/80">Your payment is encrypted and verified before processing.</p>
+                    </div>
+
+                    {/* Info Note */}
+                    <div className="rounded-2xl border border-sky-500/30 bg-sky-950/20 p-4">
+                      <p className="text-xs font-semibold text-sky-300">ℹ️ What happens next?</p>
+                      <p className="mt-1.5 text-[11px] text-sky-200/80">Your payment will be confirmed and the admin will notify you when your order is being prepared.</p>
                     </div>
                   </aside>
                 </div>
                 )}
 
+                {/* Payment Gateway Modal */}
+                {isPaymentGatewayOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-700 max-h-screen overflow-y-auto">
+                      {/* Payment Gateway Content based on method */}
+                      {selectedPaymentMethod === 'upi' && (
+                        <div className="space-y-6">
+                          <div className="text-center">
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-950/50 border border-purple-500/30">
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-8 w-8 text-purple-400">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <path d="M3 9h18M9 3v18" />
+                              </svg>
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-50">UPI Payment</h3>
+                            <p className="mt-2 text-sm text-slate-400">Amount: <span className="font-bold text-slate-100">Rs. {latestOrder?.totalAmount.toFixed(2)}</span></p>
+                          </div>
+
+                          <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-4">
+                            <p className="text-sm font-semibold text-slate-100 mb-3">Enter UPI ID</p>
+                            <input
+                              type="text"
+                              placeholder="yourname@upi"
+                              className="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="rounded-2xl border border-purple-500/30 bg-purple-950/20 p-4">
+                            <p className="text-xs text-purple-300 font-semibold">💳 Supported Apps</p>
+                            <p className="mt-1 text-xs text-purple-200/80">Google Pay, PhonePe, Paytm, BHIM, WhatsApp Pay</p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handlePaymentGatewaySuccess}
+                            disabled={processingPayment}
+                            className="w-full rounded-xl bg-purple-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {processingPayment ? 'Processing...' : 'Pay Now'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handlePaymentGatewayCancel}
+                            disabled={processingPayment}
+                            className="w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700 disabled:opacity-60"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedPaymentMethod === 'card' && (
+                        <div className="space-y-6">
+                          <div className="text-center">
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-950/50 border border-blue-500/30">
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-8 w-8 text-blue-400">
+                                <rect x="2" y="5" width="20" height="14" rx="2" />
+                                <line x1="2" y1="10" x2="22" y2="10" />
+                              </svg>
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-50">Card Payment</h3>
+                            <p className="mt-2 text-sm text-slate-400">Amount: <span className="font-bold text-slate-100">Rs. {latestOrder?.totalAmount.toFixed(2)}</span></p>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div>
+                              <label className="text-xs font-semibold text-slate-300">Card Number</label>
+                              <input
+                                type="text"
+                                placeholder="4532 1488 0343 6467"
+                                maxLength={16}
+                                className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-xs font-semibold text-slate-300">MM/YY</label>
+                                <input
+                                  type="text"
+                                  placeholder="12/25"
+                                  maxLength={5}
+                                  className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-semibold text-slate-300">CVV</label>
+                                <input
+                                  type="text"
+                                  placeholder="123"
+                                  maxLength={3}
+                                  className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-semibold text-slate-300">Cardholder Name</label>
+                              <input
+                                type="text"
+                                placeholder="John Doe"
+                                className="mt-1 w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl border border-blue-500/30 bg-blue-950/20 p-4">
+                            <p className="text-xs text-blue-300 font-semibold">🔒 Secure Checkout</p>
+                            <p className="mt-1 text-xs text-blue-200/80">Your card details are encrypted and securely transmitted</p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handlePaymentGatewaySuccess}
+                            disabled={processingPayment}
+                            className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {processingPayment ? 'Processing...' : 'Pay Rs. ' + (latestOrder?.totalAmount.toFixed(2) ?? '0')}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handlePaymentGatewayCancel}
+                            disabled={processingPayment}
+                            className="w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700 disabled:opacity-60"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedPaymentMethod === 'razorpay' && (
+                        <div className="space-y-6">
+                          <div className="text-center">
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-950/50 border border-indigo-500/30">
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-8 w-8 text-indigo-400">
+                                <circle cx="12" cy="12" r="10" />
+                                <path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm1-11h-2v6h2v-6z" />
+                              </svg>
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-50">Razorpay Payment</h3>
+                            <p className="mt-2 text-sm text-slate-400">Amount: <span className="font-bold text-slate-100">Rs. {latestOrder?.totalAmount.toFixed(2)}</span></p>
+                          </div>
+
+                          <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-4 space-y-3">
+                            <p className="text-sm font-semibold text-slate-100">Payment Methods</p>
+                            {['Credit Card', 'Debit Card', 'UPI', 'Wallet', 'Net Banking'].map((method) => (
+                              <label key={method} className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-700/50 transition">
+                                <input type="radio" name="razorpay-method" defaultChecked={method === 'UPI'} className="accent-indigo-500" />
+                                <span className="text-sm text-slate-300">{method}</span>
+                              </label>
+                            ))}
+                          </div>
+
+                          <div className="rounded-2xl border border-indigo-500/30 bg-indigo-950/20 p-4">
+                            <p className="text-xs text-indigo-300 font-semibold">✓ Safe & Secure</p>
+                            <p className="mt-1 text-xs text-indigo-200/80">Razorpay is trusted by 100,000+ businesses in India</p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handlePaymentGatewaySuccess}
+                            disabled={processingPayment}
+                            className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {processingPayment ? 'Processing...' : 'Proceed with Razorpay'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handlePaymentGatewayCancel}
+                            disabled={processingPayment}
+                            className="w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700 disabled:opacity-60"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-slate-400">
@@ -946,7 +1334,7 @@ function CustomerPage() {
             <button
               type="button"
               onClick={() => goToStep((currentStep - 1) as BookStep)}
-              className={`${footerButtonClass} border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700`}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
             >
               <ButtonIcon path="M19 12H5M11 5l-7 7 7 7" />
               Back
@@ -962,9 +1350,13 @@ function CustomerPage() {
               type="button"
               onClick={() => void goToNextStep()}
               disabled={isPrimaryDisabled}
-              className={`${footerButtonClass} bg-amber-400 text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60`}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                currentStep === 5 && !isPrimaryDisabled
+                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20'
+                  : 'bg-amber-400 text-slate-950 hover:bg-amber-300'
+              } disabled:cursor-not-allowed disabled:opacity-60`}
             >
-              <ButtonIcon path="M5 12h14M13 5l7 7-7 7" />
+              <ButtonIcon path={currentStep === 5 && latestOrder?.paymentStatus !== 'paid' ? "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" : "M5 12h14M13 5l7 7-7 7"} />
               {getPrimaryActionLabel()}
             </button>
           )}

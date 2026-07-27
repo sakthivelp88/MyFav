@@ -11,9 +11,9 @@ type PageToastStackProps = {
 }
 
 const variantClassMap: Record<PageToast['variant'], string> = {
-  info: 'border-sky-900/60 bg-sky-950/90 text-sky-200',
-  success: 'border-emerald-900/60 bg-emerald-950/90 text-emerald-200',
-  error: 'border-red-900/60 bg-red-950/90 text-red-200',
+  info: 'border-sky-300/60 bg-sky-50/90 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/90 dark:text-sky-200',
+  success: 'border-emerald-300/60 bg-emerald-50/90 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/90 dark:text-emerald-200',
+  error: 'border-red-300/60 bg-red-50/90 text-red-700 dark:border-red-900/60 dark:bg-red-950/90 dark:text-red-200',
 }
 
 function PageToastStack({ notifications }: PageToastStackProps) {
@@ -53,7 +53,7 @@ function PageToastStack({ notifications }: PageToastStackProps) {
   }
 
   return (
-    <div className="pointer-events-none absolute left-4 right-4 top-4 z-20 flex flex-col gap-3 sm:left-auto sm:w-full sm:max-w-sm">
+    <div className="pointer-events-none fixed right-4 bottom-4 z-20 flex flex-col gap-3 w-full max-w-sm">
       {visibleNotifications.map((notification) => (
         <div
           key={`${notification.id}:${notification.message}`}

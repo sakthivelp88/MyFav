@@ -13,6 +13,7 @@ import AdminItemManagementPage from '@pages/admin/AdminItemManagementPage'
 import AdminPaymentManagementPage from '@pages/admin/AdminPaymentManagementPage'
 import AdminFeedbackManagementPage from '@pages/admin/AdminFeedbackManagementPage'
 import AdminServiceManagementPage from '@pages/admin/AdminServiceManagementPage'
+import AdminOrderManagementPage from '@pages/admin/AdminOrderManagementPage'
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
       >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
+        <Route path="orders" element={<AdminOrderManagementPage />} />
         <Route path="inventory" element={<AdminInventoryPage />} />
         <Route path="items" element={<AdminItemManagementPage />} />
         <Route path="payments" element={<AdminPaymentManagementPage />} />

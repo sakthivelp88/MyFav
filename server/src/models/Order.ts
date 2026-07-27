@@ -92,6 +92,22 @@ const orderSchema = new Schema(
       type: Date,
       default: null,
     },
+    preparationTimeMinutes: {
+      type: Number,
+      default: null,
+    },
+    scheduledAt: {
+      type: Date,
+      default: null,
+    },
+    acceptedAt: {
+      type: Date,
+      default: null,
+    },
+    preparingAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 )

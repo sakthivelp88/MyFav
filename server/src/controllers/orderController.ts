@@ -382,3 +382,136 @@ export const payForOrder = async (req: Request, res: Response) => {
 
   res.status(200).json(order)
 }
+
+const calculateAutoPrepTime = (totalQuantity: number): number => {
+  // Base time: 5 minutes for first item
+  // Additional 2 minutes per additional item
+  const baseTime = 5
+  const perItemTime = 2
+
+  if (totalQuantity <= 1) {
+    return baseTime
+  }
+
+  return baseTime + (totalQuantity - 1) * perItemTime
+}
+
+export const setPreparationTime = async (req: Request, res: Response) => {
+  requireAdmin(req)
+
+  const { id } = req.params
+  const { mode, preparationTimeMinutes } = req.body as {
+    mode?: 'manual' | 'auto'
+    preparationTimeMinutes?: number
+  }
+
+  const validModes = ['manual', 'auto']
+
+  if (!mode || !validModes.includes(mode)) {
+    throw new HttpError('Invalid mode. Must be "manual" or "auto"', 400)
+  }
+
+  const order = await OrderModel.findById(id)
+
+  if (!order) {
+    throw new HttpError('Order not found', 404)
+  }
+
+  if (order.status !== 'pending') {
+    throw new HttpError('Can only set prep time for pending orders', 400)
+  }
+
+  let finalPrepTime: number
+
+  if (mode === 'auto') {
+    // Calculate prep time based on total quantity
+    const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0)
+    finalPrepTime = calculateAutoPrepTime(totalQuantity)
+  } else {
+    // Manual mode - must provide preparationTimeMinutes
+    if (!preparationTimeMinutes || preparationTimeMinutes < 1) {
+      throw new HttpError('preparationTimeMinutes must be provided and at least 1 minute', 400)
+    }
+    finalPrepTime = preparationTimeMinutes
+  }
+
+  const now = new Date()
+  const scheduledAt = new Date(now.getTime() + finalPrepTime * 60 * 1000)
+
+  order.preparationTimeMinutes = finalPrepTime
+  order.scheduledAt = scheduledAt
+  order.status = 'accepted'
+  order.acceptedAt = now
+
+  await order.save()
+
+  res.status(200).json(order)
+}
+
+export const getOrdersForAutoTransition = async (req: Request, res: Response) => {
+  requireAdmin(req)
+
+  const now = new Date()
+
+  // Get orders that should transition to 'preparing'
+  const preparingOrders = await OrderModel.find({
+    status: 'accepted',
+    scheduledAt: { $lte: now },
+    preparingAt: null,
+  })
+
+  // Get orders that should be marked as 'served' (for display, but we don't auto-transition to served)
+  const readyOrders = await OrderModel.find({
+    status: 'preparing',
+    scheduledAt: { $lte: now },
+  })
+
+  res.status(200).json({
+    preparingOrders,
+    readyOrders,
+  })
+}
+
+export const autoTransitionOrderStatus = async (req: Request, res: Response) => {
+  requireAdmin(req)
+
+  const { id } = req.params
+  const { targetStatus } = req.body as {
+    targetStatus?: 'preparing' | 'ready'
+  }
+
+  const validStatuses = ['preparing', 'ready']
+
+  if (!targetStatus || !validStatuses.includes(targetStatus)) {
+    throw new HttpError('Invalid target status. Must be "preparing" or "ready"', 400)
+  }
+
+  const order = await OrderModel.findById(id)
+
+  if (!order) {
+    throw new HttpError('Order not found', 404)
+  }
+
+  if (targetStatus === 'preparing') {
+    if (order.status !== 'accepted') {
+      throw new HttpError('Order must be in accepted status to transition to preparing', 400)
+    }
+
+    order.status = 'preparing'
+    order.preparingAt = new Date()
+  }
+
+  await order.save()
+
+  res.status(200).json(order)
+}
+
+export const getPendingOrders = async (req: Request, res: Response) => {
+  requireAdmin(req)
+
+  const orders = await OrderModel.find({
+    status: { $in: ['pending', 'accepted', 'preparing'] },
+  }).sort({ createdAt: -1 })
+
+  res.status(200).json(orders)
+}
