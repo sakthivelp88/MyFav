@@ -1,4 +1,6 @@
-import 'dotenv/config'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { config } from 'dotenv'
 import cors from 'cors'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import session from 'express-session'
@@ -13,6 +15,11 @@ import tableRoutes from './src/routes/tableRoutes.js'
 import customerRoutes from './src/routes/customerRoutes.js'
 import feedbackRoutes from './src/routes/feedbackRoutes.js'
 import HttpError from './src/utils/httpError.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+config({ path: path.resolve(__dirname, '.env') })
 
 const app = express()
 const PORT = Number(process.env.PORT) || 5000

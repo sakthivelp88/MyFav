@@ -53,10 +53,29 @@ const orderSchema = new Schema(
       required: true,
       validate: [(value: unknown[]) => value.length > 0, 'Order must have items'],
     },
+    subTotalAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    gstRate: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    gstAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
     totalAmount: {
       type: Number,
       required: true,
       min: 0,
+      default: 0,
     },
     invoiceNumber: {
       type: String,

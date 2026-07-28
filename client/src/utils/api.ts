@@ -1,6 +1,7 @@
 import type {
-  AdminChangePasswordResponse,
   AdminAuthResponse,
+  AdminChangePasswordResponse,
+  AdminForgotPasswordResponse,
   AdminSessionResponse,
   BillStatus,
   Category,
@@ -158,6 +159,20 @@ export const changeAdminPassword = async (payload: {
   return response
 }
 
+export const forgotAdminPassword = async (payload: {
+  username: string
+  resetSecret: string
+  newPassword: string
+  confirmPassword: string
+}) => {
+  const response = await request<AdminForgotPasswordResponse>('/api/auth/admin/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+  return response
+}
+
 export const listItems = () => request<Item[]>('/api/items')
 
 export const listCategories = () => request<Category[]>('/api/categories')
@@ -210,6 +225,7 @@ export const createItem = (payload: {
   stockUnit: 'kg' | 'gram' | 'numbers' | 'litre'
   weightage: string
   price: number
+  gstRate: number
   category: string
 }) =>
   requestWithAdminCsrf<Item>('/api/items', {
@@ -231,6 +247,7 @@ export const updateItemInventory = (
     stockUnit: 'kg' | 'gram' | 'numbers' | 'litre'
     weightage: string
     price: number
+    gstRate: number
     category: string
     available: boolean
   }
@@ -240,11 +257,20 @@ export const updateItemInventory = (
     body: JSON.stringify(payload),
   })
 
+export const getGstRate = () => request<{ gstRate: number }>('/api/orders/gst')
+
+export const updateGstRate = (gstRate: number) =>
+  requestWithAdminCsrf<{ gstRate: number }>('/api/orders/gst', {
+    method: 'PATCH',
+    body: JSON.stringify({ gstRate }),
+  })
+
 export const createOrder = (payload: {
   customerName: string
   customerPhone: string
   tableCode: string
   items: Array<{ itemId: string; quantity: number }>
+  gstRate?: number
 }) =>
   request<Order>('/api/orders', {
     method: 'POST',

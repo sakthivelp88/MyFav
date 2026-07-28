@@ -2,6 +2,7 @@ import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import {
 	adminChangePassword,
+	adminForgotPassword,
 	adminLogin,
 	adminLogout,
 	adminMe,
@@ -22,6 +23,7 @@ const adminLoginLimiter = rateLimit({
 })
 
 router.post('/admin/login', adminLoginLimiter, asyncHandler(adminLogin))
+router.post('/admin/forgot-password', adminLoginLimiter, asyncHandler(adminForgotPassword))
 router.get('/admin/me', asyncHandler(adminMe))
 router.post('/admin/logout', asyncHandler(async (req, res) => {
 	requireAdminCsrf(req)

@@ -4,11 +4,17 @@ import ItemModel from '../models/Item.js'
 import OrderModel from '../models/Order.js'
 import HttpError from '../utils/httpError.js'
 import { requireAdmin } from '../utils/roles.js'
+import { calculateGstBreakdown } from '../utils/gst.js'
+
+const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100
+import SettingModel from '../models/Setting.js'
 
 type CreateOrderItem = {
   itemId: string
   quantity: number
 }
+
+const supportedGstRates = [0, 5, 18]
 
 const normalizeOrderItems = async (items: CreateOrderItem[]) => {
   const itemIds = items.map((entry) => entry.itemId)
@@ -35,6 +41,7 @@ const normalizeOrderItems = async (items: CreateOrderItem[]) => {
       price: item.price,
       quantity: entry.quantity,
       lineTotal: item.price * entry.quantity,
+      gstRate: item.gstRate,
     }
   })
 
@@ -145,12 +152,19 @@ const buildInvoiceNumber = () => {
   return `INV-${yyyy}${mm}${dd}-${random}`
 }
 
+const getActiveGstRate = async () => {
+  const setting = await SettingModel.findOne({ key: 'gstRate' })
+  const value = Number(setting?.value ?? 0)
+  return Number.isFinite(value) ? value : 0
+}
+
 export const createOrder = async (req: Request, res: Response) => {
-  const { customerName, customerPhone, tableCode, items } = req.body as {
+  const { customerName, customerPhone, tableCode, items, gstRate } = req.body as {
     customerName?: string
     customerPhone?: string
     tableCode?: string
     items?: CreateOrderItem[]
+    gstRate?: number
   }
 
   if (!customerName || !customerPhone || !tableCode) {
@@ -164,14 +178,37 @@ export const createOrder = async (req: Request, res: Response) => {
   const { normalizedItems, dbItems } = await normalizeOrderItems(items)
   ensureNumberStockAvailable(dbItems, items)
 
-  const totalAmount = normalizedItems.reduce((sum, current) => sum + current.lineTotal, 0)
+  const subTotalAmount = normalizedItems.reduce((sum, current) => sum + current.lineTotal, 0)
+  const activeGstRate = await getActiveGstRate()
+  const parsedRequestedGstRate = Number(gstRate)
+  const resolvedGstRate = Number.isFinite(parsedRequestedGstRate) && supportedGstRates.includes(parsedRequestedGstRate)
+    ? parsedRequestedGstRate
+    : activeGstRate
+
+  const itemGstBreakdown = normalizedItems.reduce((acc, current) => {
+    const lineGstAmount = calculateGstBreakdown(current.lineTotal, current.gstRate ?? resolvedGstRate).gstAmount
+    return {
+      subTotalAmount: acc.subTotalAmount + current.lineTotal,
+      gstAmount: acc.gstAmount + lineGstAmount,
+    }
+  }, { subTotalAmount: 0, gstAmount: 0 })
+
+  const gstBreakdown = {
+    subTotalAmount: roundCurrency(itemGstBreakdown.subTotalAmount),
+    gstRate: resolvedGstRate,
+    gstAmount: roundCurrency(itemGstBreakdown.gstAmount),
+    totalAmount: roundCurrency(itemGstBreakdown.subTotalAmount + itemGstBreakdown.gstAmount),
+  }
 
   const order = await OrderModel.create({
     customerName,
     customerPhone,
     tableCode,
     items: normalizedItems,
-    totalAmount,
+    subTotalAmount: gstBreakdown.subTotalAmount,
+    gstRate: gstBreakdown.gstRate,
+    gstAmount: gstBreakdown.gstAmount,
+    totalAmount: gstBreakdown.totalAmount,
     invoiceNumber: buildInvoiceNumber(),
     status: 'pending',
     billStatus: 'unpaid',
@@ -189,7 +226,7 @@ export const createOrder = async (req: Request, res: Response) => {
       },
       $inc: {
         totalOrders: 1,
-        totalSpent: totalAmount,
+        totalSpent: gstBreakdown.totalAmount,
       },
     },
     {
@@ -312,6 +349,30 @@ export const updateOrderBillStatus = async (req: Request, res: Response) => {
   res.status(200).json(order)
 }
 
+export const getGstSetting = async (_req: Request, res: Response) => {
+  const gstRate = await getActiveGstRate()
+  res.status(200).json({ gstRate })
+}
+
+export const updateGstSetting = async (req: Request, res: Response) => {
+  requireAdmin(req)
+
+  const { gstRate } = req.body as { gstRate?: number }
+  const parsedGstRate = Number(gstRate)
+
+  if (!Number.isFinite(parsedGstRate) || !supportedGstRates.includes(parsedGstRate)) {
+    throw new HttpError('gstRate must be one of 0, 5, or 18', 400)
+  }
+
+  await SettingModel.findOneAndUpdate(
+    { key: 'gstRate' },
+    { key: 'gstRate', value: parsedGstRate },
+    { upsert: true, new: true }
+  )
+
+  res.status(200).json({ gstRate: parsedGstRate })
+}
+
 export const updateCustomerOrder = async (req: Request, res: Response) => {
   const { id } = req.params
   const { customerName, customerPhone, tableCode, items } = req.body as {
@@ -341,14 +402,18 @@ export const updateCustomerOrder = async (req: Request, res: Response) => {
 
   const { normalizedItems } = await normalizeOrderItems(items)
   await reconcileNumberStockForOrderEdit(existingOrder, items)
-  const totalAmount = normalizedItems.reduce((sum, current) => sum + current.lineTotal, 0)
+  const subTotalAmount = normalizedItems.reduce((sum, current) => sum + current.lineTotal, 0)
+  const gstBreakdown = calculateGstBreakdown(subTotalAmount, existingOrder.gstRate ?? 0)
 
   existingOrder.set({
     customerName: customerName.trim(),
     customerPhone: customerPhone.trim(),
     tableCode: tableCode.trim().toUpperCase(),
     items: normalizedItems,
-    totalAmount,
+    subTotalAmount: gstBreakdown.subTotalAmount,
+    gstRate: gstBreakdown.gstRate,
+    gstAmount: gstBreakdown.gstAmount,
+    totalAmount: gstBreakdown.totalAmount,
   })
 
   await existingOrder.save()

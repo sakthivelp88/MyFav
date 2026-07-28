@@ -1,9 +1,11 @@
 import { Router } from 'express'
 import {
   createOrder,
+  getGstSetting,
   getLatestCustomerOrder,
   listOrders,
   payForOrder,
+  updateGstSetting,
   updateCustomerOrder,
   updateOrderBillStatus,
   updateOrderStatus,
@@ -19,6 +21,11 @@ const router = Router()
 
 router.post('/', asyncHandler(createOrder))
 router.get('/', asyncHandler(listOrders))
+router.get('/gst', asyncHandler(getGstSetting))
+router.patch('/gst', asyncHandler(async (req, res) => {
+  requireAdminCsrf(req)
+  await updateGstSetting(req, res)
+}))
 router.get('/latest', asyncHandler(getLatestCustomerOrder))
 router.get('/pending/all', asyncHandler(getPendingOrders))
 router.get('/auto-transition/check', asyncHandler(getOrdersForAutoTransition))

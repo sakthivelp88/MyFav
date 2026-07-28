@@ -229,7 +229,11 @@ function AdminPaymentManagementPage() {
                 <p className="text-sm text-slate-500 dark:text-slate-400">Payment method: {order.paymentMethod ?? 'not selected yet'}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Payment status: {order.paymentStatus}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Bill status: {order.billStatus}</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">Rs. {order.totalAmount.toFixed(2)}</p>
+                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  <p>Subtotal: Rs. {order.subTotalAmount.toFixed(2)}</p>
+                  <p>GST ({order.gstRate.toFixed(2)}%): Rs. {order.gstAmount.toFixed(2)}</p>
+                  <p className="text-base">Total: Rs. {order.totalAmount.toFixed(2)}</p>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 {(['unpaid', 'paid'] as BillStatus[]).map((status) => (

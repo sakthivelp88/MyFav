@@ -3,10 +3,12 @@ import AdminPagination from '@components/AdminPagination'
 import PageToastStack from '@components/PageToastStack'
 import {
   changeAdminPassword,
+  getGstRate,
   listCategories,
   listItems,
   listOrders,
   listTables,
+  updateGstRate,
 } from '@utils/api'
 import type { Category, DiningTable, Item, Order } from '../../types'
 
@@ -41,6 +43,8 @@ function AdminDashboardPage() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [gstRate, setGstRate] = useState('18')
+  const [gstSaving, setGstSaving] = useState(false)
   const [passwordMessage, setPasswordMessage] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
@@ -57,17 +61,19 @@ function AdminDashboardPage() {
     setError('')
 
     try {
-      const [itemResult, orderResult, categoryResult, tableResult] = await Promise.all([
+      const [itemResult, orderResult, categoryResult, tableResult, gstResult] = await Promise.all([
         listItems(),
         listOrders(),
         listCategories(),
         listTables(),
+        getGstRate(),
       ])
 
       setItems(itemResult)
       setOrders(orderResult)
       setCategories(categoryResult)
       setTables(tableResult)
+      setGstRate(String(gstResult.gstRate))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load dashboard data')
     } finally {
@@ -128,6 +134,28 @@ function AdminDashboardPage() {
       setSuccess('Password changed successfully')
     } catch (err) {
       setPasswordError(err instanceof Error ? err.message : 'Failed to change password')
+    }
+  }
+
+  const saveGstRate = async () => {
+    setGstSaving(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const parsedGstRate = Number(gstRate)
+      if (!Number.isFinite(parsedGstRate) || ![0, 5, 18].includes(parsedGstRate)) {
+        setError('GST rate must be one of 0%, 5%, or 18%')
+        return
+      }
+
+      const response = await updateGstRate(parsedGstRate)
+      setGstRate(String(response.gstRate))
+      setSuccess(`GST rate updated to ${response.gstRate}%`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update GST rate')
+    } finally {
+      setGstSaving(false)
     }
   }
 
@@ -275,6 +303,64 @@ function AdminDashboardPage() {
     return Math.max(...monthlyHistory.map((month) => month.revenue))
   }, [monthlyHistory])
 
+  const printOrderBill = (order: Order) => {
+    const printWindow = window.open('', '_blank', 'width=800,height=900')
+    if (!printWindow) {
+      return
+    }
+
+    const invoiceNumber = order.invoiceNumber ?? `ORD-${order._id.slice(-6).toUpperCase()}`
+    const rows = order.items
+      .map(
+        (line) => `
+          <tr>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${line.name}</td>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;">${line.quantity}</td>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;">Rs. ${line.price.toFixed(2)}</td>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right;">Rs. ${line.lineTotal.toFixed(2)}</td>
+          </tr>
+        `
+      )
+      .join('')
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Bill ${invoiceNumber}</title>
+        </head>
+        <body style="font-family:Segoe UI,Arial,sans-serif;padding:24px;color:#0f172a;">
+          <h2 style="margin:0 0 8px;">MyFav - Customer Bill</h2>
+          <p style="margin:4px 0;">Invoice: <strong>${invoiceNumber}</strong></p>
+          <p style="margin:4px 0;">Customer: <strong>${order.customerName}</strong> (${order.customerPhone})</p>
+          <p style="margin:4px 0;">Table: <strong>${order.tableCode}</strong></p>
+          <p style="margin:4px 0 16px;">Date: ${new Date(order.createdAt).toLocaleString()}</p>
+
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px;border-bottom:2px solid #cbd5e1;">Item</th>
+                <th style="text-align:right;padding:8px;border-bottom:2px solid #cbd5e1;">Qty</th>
+                <th style="text-align:right;padding:8px;border-bottom:2px solid #cbd5e1;">Price</th>
+                <th style="text-align:right;padding:8px;border-bottom:2px solid #cbd5e1;">Line Total</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+
+          <div style="text-align:right;margin-top:18px;">
+            <p>Sub Total: Rs. ${order.subTotalAmount.toFixed(2)}</p>
+            <p>GST (${order.gstRate.toFixed(2)}%): Rs. ${order.gstAmount.toFixed(2)}</p>
+            <h3 style="margin:8px 0 0;">Grand Total: Rs. ${order.totalAmount.toFixed(2)}</h3>
+          </div>
+          <p style="text-align:right;margin-top:4px;">Bill Status: ${order.billStatus}</p>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
+
   const panelClass =
     'rounded-2xl border border-slate-700/80 bg-slate-800/85 p-4 shadow-lg shadow-black/10'
 
@@ -334,6 +420,34 @@ function AdminDashboardPage() {
       <article className={panelClass}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
+            <h3 className="text-lg font-semibold text-slate-100">GST Configuration</h3>
+            <p className="text-sm text-slate-400">Set the tax rate used for future orders and invoices.</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <select
+            value={gstRate}
+            onChange={(event) => setGstRate(event.target.value)}
+            className="w-40 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+          >
+            <option value="0">0% - Nil / exempt</option>
+            <option value="5">5% - Essentials</option>
+            <option value="18">18% - Standard</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => void saveGstRate()}
+            disabled={gstSaving}
+            className="rounded-xl bg-amber-400 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {gstSaving ? 'Saving...' : 'Save GST'}
+          </button>
+        </div>
+      </article>
+
+      <article className={panelClass}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
             <h3 className="text-lg font-semibold text-slate-100">Today Transactions</h3>
             <p className="text-sm text-slate-400">Live register of today's customer orders and bill state.</p>
           </div>
@@ -388,6 +502,7 @@ function AdminDashboardPage() {
                 <th className="px-3 py-2">Table</th>
                 <th className="px-3 py-2">Bill</th>
                 <th className="px-3 py-2">Total</th>
+                <th className="px-3 py-2">Print</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 bg-slate-900/40">
@@ -409,6 +524,15 @@ function AdminDashboardPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-slate-300">Rs. {order.totalAmount.toFixed(2)}</td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() => printOrderBill(order)}
+                      className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-500/20"
+                    >
+                      Print Bill
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!loading && filteredTodayOrders.length === 0 ? (

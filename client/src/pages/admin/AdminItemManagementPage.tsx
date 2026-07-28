@@ -11,6 +11,7 @@ function AdminItemManagementPage() {
   const [name, setName] = useState('')
   const [weightage, setWeightage] = useState('')
   const [price, setPrice] = useState('')
+  const [gstRate, setGstRate] = useState('0')
   const [category, setCategory] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -186,9 +187,15 @@ function AdminItemManagementPage() {
 
   const submitItem = async () => {
     const numericPrice = Number(price)
+    const parsedGstRate = Number(gstRate)
 
     if (!name.trim() || !weightage.trim() || !Number.isFinite(numericPrice) || numericPrice < 0 || !category.trim()) {
       setError('Item name, weightage, price and category are required')
+      return
+    }
+
+    if (!Number.isFinite(parsedGstRate) || ![0, 5, 18].includes(parsedGstRate)) {
+      setError('GST rate must be one of 0%, 5%, or 18%')
       return
     }
 
@@ -202,11 +209,13 @@ function AdminItemManagementPage() {
         stockUnit: 'numbers',
         weightage: weightage.trim(),
         price: numericPrice,
+        gstRate: parsedGstRate,
         category: category.trim(),
       })
       setName('')
       setWeightage('')
       setPrice('')
+      setGstRate('0')
       setSuccess('Item created successfully')
       await loadData()
     } catch (err) {
@@ -286,7 +295,7 @@ function AdminItemManagementPage() {
       <article className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4">
         <h3 className="text-lg font-semibold text-slate-100">Add Item</h3>
         <p className="mt-1 text-sm text-slate-400">Use the Inventory page to enter stock quantity/unit. This page keeps item master details and visibility.</p>
-        <div className="mt-3 grid gap-3 md:grid-cols-5">
+        <div className="mt-3 grid gap-3 md:grid-cols-6">
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -317,6 +326,15 @@ function AdminItemManagementPage() {
                 {entry.name}
               </option>
             ))}
+          </select>
+          <select
+            value={gstRate}
+            onChange={(event) => setGstRate(event.target.value)}
+            className={inputClass}
+          >
+            <option value="0">0% GST</option>
+            <option value="5">5% GST</option>
+            <option value="18">18% GST</option>
           </select>
           <button
             type="button"

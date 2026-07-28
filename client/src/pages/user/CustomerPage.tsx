@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import PageToastStack from '@components/PageToastStack'
 import {
   createOrder,
+  getGstRate,
   getLatestCustomerOrder,
   listCategories,
   listItems,
@@ -368,11 +369,13 @@ function CustomerPage() {
     setSuccess('')
 
     try {
+      const { gstRate } = await getGstRate()
       const payload = {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         tableCode: tableCode.trim().toUpperCase(),
         items: orderItems,
+        gstRate,
       }
 
       const order = canEditCurrentOrder && latestOrder
@@ -384,7 +387,7 @@ function CustomerPage() {
       setSuccess(
         canEditCurrentOrder
           ? `Order updated successfully. Invoice ${order.invoiceNumber ?? order._id.slice(-6).toUpperCase()}`
-          : `Order placed successfully. Invoice ${order.invoiceNumber ?? order._id.slice(-6).toUpperCase()}`
+          : `Order placed successfully. Invoice ${order.invoiceNumber ?? order._id.slice(-6).toUpperCase()} (${gstRate}% GST)`
       )
       setCurrentStep(5)
     } catch (err) {

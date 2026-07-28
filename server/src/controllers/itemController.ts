@@ -11,7 +11,7 @@ export const listItems = async (_req: Request, res: Response) => {
 export const createItem = async (req: Request, res: Response) => {
   requireAdmin(req)
 
-  const { name, price, category, available, stockQuantity, stockUnit, weightage } = req.body as {
+  const { name, price, category, available, stockQuantity, stockUnit, weightage, gstRate } = req.body as {
     name?: string
     price?: number
     category?: string
@@ -19,12 +19,18 @@ export const createItem = async (req: Request, res: Response) => {
     stockQuantity?: number
     stockUnit?: 'kg' | 'gram' | 'numbers' | 'litre'
     weightage?: string
+    gstRate?: number
   }
 
   const validUnits = ['kg', 'gram', 'numbers', 'litre']
 
   if (!name || typeof price !== 'number' || typeof stockQuantity !== 'number' || !weightage?.trim()) {
     throw new HttpError('name, numeric quantity, weightage and numeric price are required', 400)
+  }
+
+  const parsedGstRate = Number(gstRate)
+  if (!Number.isFinite(parsedGstRate) || parsedGstRate < 0 || ![0, 5, 18].includes(parsedGstRate)) {
+    throw new HttpError('gstRate must be one of 0, 5, or 18', 400)
   }
 
   if (!stockUnit || !validUnits.includes(stockUnit)) {
@@ -37,6 +43,7 @@ export const createItem = async (req: Request, res: Response) => {
     stockUnit,
     weightage: weightage.trim(),
     price,
+    gstRate: parsedGstRate,
     category: category ?? 'tea',
     available: available ?? true,
   })
@@ -71,7 +78,7 @@ export const updateItemInventory = async (req: Request, res: Response) => {
   requireAdmin(req)
 
   const { id } = req.params
-  const { name, stockQuantity, stockUnit, weightage, price, category, available } = req.body as {
+  const { name, stockQuantity, stockUnit, weightage, price, category, available, gstRate } = req.body as {
     name?: string
     stockQuantity?: number
     stockUnit?: 'kg' | 'gram' | 'numbers' | 'litre'
@@ -79,6 +86,7 @@ export const updateItemInventory = async (req: Request, res: Response) => {
     price?: number
     category?: string
     available?: boolean
+    gstRate?: number
   }
 
   const validUnits = ['kg', 'gram', 'numbers', 'litre']
@@ -91,6 +99,11 @@ export const updateItemInventory = async (req: Request, res: Response) => {
     throw new HttpError('Valid stock unit is required', 400)
   }
 
+  const parsedGstRate = Number(gstRate)
+  if (!Number.isFinite(parsedGstRate) || parsedGstRate < 0 || ![0, 5, 18].includes(parsedGstRate)) {
+    throw new HttpError('gstRate must be one of 0, 5, or 18', 400)
+  }
+
   const item = await ItemModel.findByIdAndUpdate(
     id,
     {
@@ -99,6 +112,7 @@ export const updateItemInventory = async (req: Request, res: Response) => {
       stockUnit,
       weightage: weightage.trim(),
       price,
+      gstRate: parsedGstRate,
       category: category?.trim() || 'tea',
       available: typeof available === 'boolean' ? available : stockQuantity > 0,
     },

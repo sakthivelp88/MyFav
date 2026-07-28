@@ -209,7 +209,11 @@ function AdminAuditLogPage() {
             <tbody>${rows}</tbody>
           </table>
 
-          <h3 style="text-align:right;margin-top:18px;">Grand Total: Rs. ${order.totalAmount.toFixed(2)}</h3>
+          <div style="text-align:right;margin-top:18px;">
+            <p>Sub Total: Rs. ${order.subTotalAmount.toFixed(2)}</p>
+            <p>GST (${order.gstRate.toFixed(2)}%): Rs. ${order.gstAmount.toFixed(2)}</p>
+            <h3 style="margin:8px 0 0;">Grand Total: Rs. ${order.totalAmount.toFixed(2)}</h3>
+          </div>
           <p style="text-align:right;margin-top:4px;">Bill Status: ${order.billStatus}</p>
         </body>
       </html>

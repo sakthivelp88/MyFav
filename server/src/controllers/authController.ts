@@ -83,6 +83,60 @@ export const adminLogout = async (req: Request, res: Response) => {
   res.status(200).json({ message: 'Logged out successfully' })
 }
 
+export const adminForgotPassword = async (req: Request, res: Response) => {
+  const { username, resetSecret, newPassword, confirmPassword } = (req.body ?? {}) as {
+    username?: string
+    resetSecret?: string
+    newPassword?: string
+    confirmPassword?: string
+  }
+
+  if (!username || !resetSecret || !newPassword || !confirmPassword) {
+    throw new HttpError('username, resetSecret, newPassword, and confirmPassword are required', 400)
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new HttpError('New password and confirm password must match', 400)
+  }
+
+  if (newPassword.length < 8) {
+    throw new HttpError('New password must be at least 8 characters', 400)
+  }
+
+  const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/
+
+  if (!strongPasswordPattern.test(newPassword)) {
+    throw new HttpError(
+      'New password must include upper, lower, number, and special character',
+      400
+    )
+  }
+
+  const configuredResetSecret = process.env.ADMIN_RESET_SECRET?.trim()
+
+  if (!configuredResetSecret) {
+    throw new HttpError('Password reset is not configured for this server', 503)
+  }
+
+  if (resetSecret !== configuredResetSecret) {
+    throw new HttpError('Invalid reset secret', 401)
+  }
+
+  const adminUser = await AdminUserModel.findOne({ username })
+
+  if (!adminUser || !adminUser.active) {
+    throw new HttpError('Admin account not found', 404)
+  }
+
+  const nextPasswordHash = await bcrypt.hash(newPassword, 12)
+  adminUser.passwordHash = nextPasswordHash
+  await adminUser.save()
+
+  res.status(200).json({
+    message: 'Password reset successfully. You can now sign in with your new password.',
+  })
+}
+
 export const adminChangePassword = async (req: Request, res: Response) => {
   if (!req.session.admin) {
     throw new HttpError('Admin authentication required', 401)

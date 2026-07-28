@@ -28,6 +28,7 @@ function AdminInventoryPage() {
   const [unit, setUnit] = useState<(typeof stockUnits)[number]>('numbers')
   const [weightage, setWeightage] = useState('')
   const [price, setPrice] = useState('')
+  const [gstRate, setGstRate] = useState('0')
   const [category, setCategory] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
   const [tableCode, setTableCode] = useState('')
@@ -50,6 +51,7 @@ function AdminInventoryPage() {
     stockUnit: (typeof stockUnits)[number]
     weightage: string
     price: string
+    gstRate: string
     category: string
     available: boolean
   } | null>(null)
@@ -257,9 +259,15 @@ function AdminInventoryPage() {
   const submitInventoryItem = async () => {
     const numericQuantity = Number(quantity)
     const numericPrice = Number(price)
+    const parsedGstRate = Number(gstRate)
 
     if (!name.trim() || !weightage.trim() || !Number.isFinite(numericQuantity) || numericQuantity < 0 || !Number.isFinite(numericPrice) || numericPrice < 0) {
       setError('Item name, quantity, weightage and price are required')
+      return
+    }
+
+    if (!Number.isFinite(parsedGstRate) || ![0, 5, 18].includes(parsedGstRate)) {
+      setError('GST rate must be one of 0%, 5%, or 18%')
       return
     }
 
@@ -273,12 +281,14 @@ function AdminInventoryPage() {
         stockUnit: unit,
         weightage: weightage.trim(),
         price: numericPrice,
+        gstRate: parsedGstRate,
         category: category.trim() || 'tea',
       })
       setName('')
       setQuantity('')
       setWeightage('')
       setPrice('')
+      setGstRate('0')
       setUnit('numbers')
       setSuccess('Inventory item created successfully')
       await loadInventory()
@@ -294,9 +304,15 @@ function AdminInventoryPage() {
 
     const numericQuantity = Number(editingItem.stockQuantity)
     const numericPrice = Number(editingItem.price)
+    const parsedGstRate = Number(editingItem.gstRate)
 
     if (!editingItem.name.trim() || !editingItem.weightage.trim() || !Number.isFinite(numericQuantity) || numericQuantity < 0 || !Number.isFinite(numericPrice) || numericPrice < 0) {
       setError('Valid item name, quantity, weightage and price are required')
+      return
+    }
+
+    if (!Number.isFinite(parsedGstRate) || ![0, 5, 18].includes(parsedGstRate)) {
+      setError('GST rate must be one of 0%, 5%, or 18%')
       return
     }
 
@@ -310,6 +326,7 @@ function AdminInventoryPage() {
         stockUnit: editingItem.stockUnit,
         weightage: editingItem.weightage.trim(),
         price: numericPrice,
+        gstRate: parsedGstRate,
         category: editingItem.category.trim() || 'tea',
         available: editingItem.available,
       })
@@ -539,7 +556,7 @@ function AdminInventoryPage() {
       <article className={panelClass}>
         <h3 className="text-lg font-semibold text-slate-100">Enter Inventory Item</h3>
         <p className="mt-1 text-sm text-slate-400">Add item name, quantity, weightage, stock unit, price, and category for inventory entry.</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-6">
+        <div className="mt-4 grid gap-3 md:grid-cols-7">
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -577,6 +594,15 @@ function AdminInventoryPage() {
             placeholder="Price"
             className={inputClass}
           />
+          <select
+            value={gstRate}
+            onChange={(event) => setGstRate(event.target.value)}
+            className={inputClass}
+          >
+            <option value="0">0% GST</option>
+            <option value="5">5% GST</option>
+            <option value="18">18% GST</option>
+          </select>
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
@@ -707,6 +733,7 @@ function AdminInventoryPage() {
                       stockUnit: entry.stockUnit,
                       weightage: entry.weightage,
                       price: String(entry.price),
+                      gstRate: String(entry.gstRate),
                       category: entry.category,
                       available: entry.available,
                     })
@@ -912,6 +939,18 @@ function AdminInventoryPage() {
                   placeholder="Price"
                   className={inputClass}
                 />
+              </label>
+              <label className="space-y-2 text-sm text-slate-300">
+                <span className="block font-medium text-slate-200">GST</span>
+                <select
+                  value={editingItem.gstRate}
+                  onChange={(event) => setEditingItem((current) => (current ? { ...current, gstRate: event.target.value } : current))}
+                  className={inputClass}
+                >
+                  <option value="0">0% GST</option>
+                  <option value="5">5% GST</option>
+                  <option value="18">18% GST</option>
+                </select>
               </label>
               <label className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200">
                 <input

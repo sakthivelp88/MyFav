@@ -31,6 +31,12 @@ const itemSchema = new Schema(
       required: true,
       min: 0,
     },
+    gstRate: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
     available: {
       type: Boolean,
       default: true,

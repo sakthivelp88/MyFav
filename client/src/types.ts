@@ -5,6 +5,7 @@ export type Item = {
   stockUnit: 'kg' | 'gram' | 'numbers' | 'litre'
   weightage: string
   price: number
+  gstRate: number
   category: string
   available: boolean
 }
@@ -34,6 +35,9 @@ export type Order = {
   customerName: string
   customerPhone: string
   tableCode: string
+  subTotalAmount: number
+  gstRate: number
+  gstAmount: number
   totalAmount: number
   status: OrderStatus
   billStatus: BillStatus
@@ -80,6 +84,10 @@ export type AdminSessionResponse =
 export type AdminChangePasswordResponse = {
   message: string
   csrfToken: string
+}
+
+export type AdminForgotPasswordResponse = {
+  message: string
 }
 
 export type CustomerBillingSummary = {
