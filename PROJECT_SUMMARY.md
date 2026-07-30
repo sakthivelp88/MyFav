@@ -462,3 +462,24 @@ For detailed implementation information, refer to:
 **Last Updated:** July 27, 2026  
 **Version:** 1.0.0  
 **Status:** Production Ready ✅
+
+## Razorpay Payment Flow Steps: ## 
+# User Checkout:
+   * Customer selects items/services and clicks Pay.
+# Order Creation:
+   * Your backend (Node.js/Express, Python, etc.) calls Razorpay API to create an order with amount, currency, and receipt ID. Razorpay returns an order_id.
+# Payment Page:
+   * Frontend (React, HTML, etc.) loads Razorpay Checkout with order_id, key_id, and customer details.
+# User Payment:
+   * Customer enters card/UPI/wallet details.
+   * Razorpay processes the payment securely.
+# Payment Response:
+   * Razorpay returns payment_id and signature to frontend.
+   * These are sent to your backend for verification.
+# Signature Verification:
+   * Backend verifies Razorpay signature using crypto library.
+   * If valid → payment success.
+   * If invalid → payment failure.
+# Final Confirmation
+   * Backend updates database (e.g., booking confirmed).
+   * User sees Payment Successful message.

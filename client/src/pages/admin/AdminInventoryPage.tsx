@@ -256,6 +256,40 @@ function AdminInventoryPage() {
   const inputClass =
     'rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500'
 
+  const gstPreview = useMemo(() => {
+    const numericPrice = Number(price)
+    const parsedGstRate = Number(gstRate)
+
+    if (!Number.isFinite(numericPrice) || numericPrice < 0 || !Number.isFinite(parsedGstRate)) {
+      return { gstAmount: 0, totalAmount: 0 }
+    }
+
+    const gstAmount = (numericPrice * parsedGstRate) / 100
+    return {
+      gstAmount: Math.round((gstAmount + Number.EPSILON) * 100) / 100,
+      totalAmount: Math.round((numericPrice + gstAmount + Number.EPSILON) * 100) / 100,
+    }
+  }, [price, gstRate])
+
+  const editingGstPreview = useMemo(() => {
+    if (!editingItem) {
+      return { gstAmount: 0, totalAmount: 0 }
+    }
+
+    const numericPrice = Number(editingItem.price)
+    const parsedGstRate = Number(editingItem.gstRate)
+
+    if (!Number.isFinite(numericPrice) || numericPrice < 0 || !Number.isFinite(parsedGstRate)) {
+      return { gstAmount: 0, totalAmount: 0 }
+    }
+
+    const gstAmount = (numericPrice * parsedGstRate) / 100
+    return {
+      gstAmount: Math.round((gstAmount + Number.EPSILON) * 100) / 100,
+      totalAmount: Math.round((numericPrice + gstAmount + Number.EPSILON) * 100) / 100,
+    }
+  }, [editingItem])
+
   const submitInventoryItem = async () => {
     const numericQuantity = Number(quantity)
     const numericPrice = Number(price)
@@ -616,6 +650,15 @@ function AdminInventoryPage() {
             ))}
           </select>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-300">
+          <span>GST preview</span>
+          <span className="rounded-full bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-200">
+            GST amount: Rs. {gstPreview.gstAmount.toFixed(2)}
+          </span>
+          <span className="rounded-full bg-amber-950/50 px-2 py-1 text-xs font-semibold text-amber-300">
+            Total with GST: Rs. {gstPreview.totalAmount.toFixed(2)}
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => void submitInventoryItem()}
@@ -960,6 +1003,16 @@ function AdminInventoryPage() {
                 />
                 Show this item on customer menu
               </label>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-300">
+              <span>GST preview</span>
+              <span className="rounded-full bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-200">
+                GST amount: Rs. {editingGstPreview.gstAmount.toFixed(2)}
+              </span>
+              <span className="rounded-full bg-amber-950/50 px-2 py-1 text-xs font-semibold text-amber-300">
+                Total with GST: Rs. {editingGstPreview.totalAmount.toFixed(2)}
+              </span>
             </div>
 
             <div className="mt-5 flex justify-end gap-3">

@@ -51,6 +51,23 @@ function AdminItemManagementPage() {
   const inputClass =
     'rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500'
 
+  const gstPreview = useMemo(() => {
+    const numericPrice = Number(price)
+    const parsedGstRate = Number(gstRate)
+
+    if (!Number.isFinite(numericPrice) || numericPrice < 0 || !Number.isFinite(parsedGstRate)) {
+      return { gstAmount: 0, totalAmount: 0 }
+    }
+
+    const gstAmount = (numericPrice * parsedGstRate) / 100
+    const roundedGstAmount = Math.round(gstAmount)
+    const roundedTotalAmount = Math.round(numericPrice + roundedGstAmount)
+    return {
+      gstAmount: roundedGstAmount,
+      totalAmount: roundedTotalAmount,
+    }
+  }, [price, gstRate])
+
   const itemSalesMap = useMemo(() => {
     const totals = new Map<string, { soldQuantity: number; soldRevenue: number }>()
 
@@ -343,6 +360,15 @@ function AdminItemManagementPage() {
           >
             Save Item
           </button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-300">
+          <span>GST preview</span>
+          <span className="rounded-full bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-200">
+            GST amount: Rs. {gstPreview.gstAmount.toFixed(2)}
+          </span>
+          <span className="rounded-full bg-amber-950/50 px-2 py-1 text-xs font-semibold text-amber-300">
+            Total with GST: Rs. {gstPreview.totalAmount.toFixed(2)}
+          </span>
         </div>
       </article>
 
